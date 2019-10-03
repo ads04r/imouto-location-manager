@@ -32,7 +32,9 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
 
 class PositionViewSet(viewsets.ViewSet):
-
+    """
+    Returns a list of the last ten positions known.
+    """
     def list(self, request):
         queryset = Position.objects.all()[0:10]
         serializer = PositionSerializer(queryset, many=True)
