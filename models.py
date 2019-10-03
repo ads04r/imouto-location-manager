@@ -13,6 +13,12 @@ class Position(models.Model):
         app_label = 'locman'
         verbose_name = 'position'
         verbose_name_plural = 'positions'
+        indexes = [
+            models.Index(fields=['lat', 'lon']),
+            models.Index(fields=['speed']),
+            models.Index(fields=['explicit']),
+            models.Index(fields=['time']),
+        ]
 
 class Location(models.Model):
     lat = models.FloatField()
@@ -22,6 +28,9 @@ class Location(models.Model):
         app_label = 'locman'
         verbose_name = 'location'
         verbose_name_plural = 'locations'
+        indexes = [
+            models.Index(fields=['lat', 'lon']),
+        ]
 
 class Event(models.Model):
     timestart = models.DateTimeField()
@@ -31,4 +40,7 @@ class Event(models.Model):
         app_label = 'locman'
         verbose_name = 'event'
         verbose_name_plural = 'events'
-    
+        indexes = [
+            models.Index(fields=['timestart', 'timeend']),
+            models.Index(fields=['location']),
+        ]
