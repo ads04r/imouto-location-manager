@@ -5,10 +5,11 @@ class EventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = ['id', 'timestart', 'timeend']
 
 class PositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Position
         fields = ['time','lat','lon','speed','explicit','source']
+
