@@ -54,6 +54,7 @@ def parse_file_fit(filename, source='unknown'):
     data = []
     fit = FitFile(filename)
     tz = get_localzone()
+    tz = pytz.UTC
     for record in fit.get_messages('record'):
         item = {}
         for recitem in record:

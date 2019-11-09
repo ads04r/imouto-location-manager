@@ -13,3 +13,8 @@ class PositionSerializer(serializers.ModelSerializer):
         model = Position
         fields = ['time','lat','lon','speed','explicit','source']
 
+class RouteSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Position
+        fields = ['time','lat','lon']
