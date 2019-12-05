@@ -33,12 +33,18 @@ def make_new_events():
         print(str(pos.time) + '\t' + str(dist) + '\t' + str(pos.lat) + ', ' + str(pos.lon))
         lastdt = dt
 
-def get_last_position():
+def get_last_position(source=''):
 
-    try:
-        latest = Position.objects.order_by('-time')[0].time
-    except:
-        latest = None
+    if source == '':
+        try:
+            latest = Position.objects.order_by('-time')[0].time
+        except:
+            latest = None
+    else:
+        try:
+            latest = Position.objects.filter(source=source).order_by('-time')[0].time
+        except:
+            latest = None
     return latest
 
 def get_last_event():
