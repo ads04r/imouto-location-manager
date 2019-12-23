@@ -1,8 +1,6 @@
 from django.db import models
 import datetime, pytz
 
-# Create your models here.
-
 class Position(models.Model):
     lat = models.FloatField()
     lon = models.FloatField()

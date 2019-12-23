@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+from background_task.models import Task
 
 class EventSerializer(serializers.ModelSerializer):
 

@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
@@ -7,25 +8,10 @@ from rest_framework import status, viewsets
 from .models import *
 from .serializers import *
 from .functions import extrapolate_position, calculate_speed
+from .tasks import *
+from background_task.models import Task
 
 import datetime, pytz
-
-class EventList(APIView):
-    
-    def get(self, request):
-        data = Event.objects.all()
-        serializer = EventSerializer(data, many=True)
-        return Response(serializer.data)
-
-    def post(self):
-        pass
-
-class PositionList(APIView):
-
-    def get(self, request):
-        data = Position.objects.all()[0]
-        serializer = PositionSerializer(data, many=True)
-        return Response(serializer.data)
 
 class EventViewSet(viewsets.ViewSet):
     """
@@ -119,3 +105,10 @@ class RouteViewSet(viewsets.ViewSet):
         event = Event(timestart=dts, timeend=dte)
         data = {"timestart": event.timestart, "timeend": event.timeend, "geo": event.geojson()}
         return Response(data)
+
+@csrf_exempt
+def upload(request):
+    if request.method == 'POST':
+        raise Http404("That was a POST")
+    else:
+        raise Http404("That was a GET")
