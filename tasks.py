@@ -1,7 +1,7 @@
 from background_task import background
 from .models import Position
 from .functions import *
-import datetime, pytz
+import datetime, pytz, os
 
 @background(schedule=0)
 def fill_locations():
@@ -28,7 +28,7 @@ def fill_locations():
             
         dt = dt + datetime.timedelta(seconds=60)
 
-@background(schedule=0)
+@background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source):
     
     if filename.lower().endswith('.gpx'):
@@ -37,7 +37,10 @@ def import_uploaded_file(filename, source):
     if filename.lower().endswith('.fit'):
         import_data(parse_file_fit(filename, source), source)
 
+    os.remove(filename)
+
     dt = datetime.datetime.utcnow().replace(tzinfo=pytz.utc) - datetime.timedelta(days=30)
     for pos in Position.objects.filter(time__gte=dt).filter(speed=None).order_by('time'):
         pos.speed = calculate_speed(pos)
         pos.save()
+    

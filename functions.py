@@ -199,3 +199,12 @@ def populate():
         return(pos)
     else:
         return(False)
+
+def get_source_ids():
+
+    ret = []
+    for data in Position.objects.values('source').distinct():
+        ret.append(data['source'])
+    #for data in Position.objects.values_list('source').annotate(Max('time')):
+        #ret.append(data)
+    return ret

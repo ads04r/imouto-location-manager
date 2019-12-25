@@ -1,17 +1,20 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
+from rest_framework.exceptions import MethodNotAllowed
 from rest_framework import status, viewsets
 
 from .models import *
 from .serializers import *
-from .functions import extrapolate_position, calculate_speed
+from .functions import extrapolate_position, calculate_speed, get_last_position, get_source_ids
 from .tasks import *
 from background_task.models import Task
 
-import datetime, pytz
+import datetime, pytz, json, os, sys
 
 class EventViewSet(viewsets.ViewSet):
     """
@@ -108,7 +111,41 @@ class RouteViewSet(viewsets.ViewSet):
 
 @csrf_exempt
 def upload(request):
-    if request.method == 'POST':
-        raise Http404("That was a POST")
-    else:
-        raise Http404("That was a GET")
+
+    if request.method == 'GET':
+        sources = get_source_ids()
+        data = {'tasks':[], 'sources':{}}
+        for source in sources:
+            data['sources'][source] = str(Position.objects.order_by('-time')[0].time.strftime("%Y-%m-%d"))
+        for task in Task.objects.all():
+            item = {}
+            item['id'] = task.task_hash
+            item['queue'] = task.queue
+            item['time'] = task.run_at
+            item['label'] = task.task_name
+            item['comment'] = task.task_verbose_name
+            data['tasks'].append(item)
+        response = HttpResponse(json.dumps(data), content_type='application/json')
+        return response
+
+    if request.method != 'POST':
+        raise MethodNotAllowed(str(request.method))
+
+    uploaded_file = request.FILES['uploaded_file']
+    temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_uploads')
+    temp_file = os.path.join(temp_dir, str(datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")) + "_" + uploaded_file.name)
+    file_source = request.POST['file_source']
+    
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    writer = open(temp_file, 'wb')
+    for line in uploaded_file:
+        writer.write(line)
+    writer.close()
+    
+    data = {'file':uploaded_file.name, 'size':uploaded_file.size, 'type':uploaded_file.content_type, 'source':file_source}
+    import_uploaded_file(temp_file, file_source)
+    response = HttpResponse(json.dumps(data), content_type='application/json')
+    return response
+
+
