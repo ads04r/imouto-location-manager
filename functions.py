@@ -5,33 +5,38 @@ import datetime, math, csv, dateutil.parser, pytz, math
 from tzlocal import get_localzone
 from .models import Position, Event
 
-def make_new_events():
+def make_new_events(max_days=7): # 2016-07-27 13:43:25+00:00
     
     lastpos = get_last_position()
     if(lastpos is None):
         return
     lastev = get_last_event()
-    if lastev >= lastpos:
-        return
-    
-# 43118 | 2017-07-27 17:09:00 | 2017-07-27 17:16:00
+    if lastev >= (lastpos - datetime.timedelta(hours=12)):
+        return 0
 
-    limit = lastev + datetime.timedelta(days=7)
-    for pos in Position.objects.filter(time__gte=lastev).filter(time__lt=limit).filter(speed=None):
-        print(pos.time)
+    limit = lastev + datetime.timedelta(days=max_days)
+
+    for pos in Position.objects.filter(time__gte=lastev, time__lt=limit, speed=None):
         pos.speed = calculate_speed(pos)
         pos.save()
 
     lastdt = lastev
-    for pos in Position.objects.filter(time__gte=lastev).filter(time__lt=limit).filter(speed=0).order_by('time'):
+    created = 0
+    event = None
+    for pos in Position.objects.filter(time__gt=lastev, time__lt=limit, speed=0):
         dt = pos.time
-        dist = (dt - lastdt).total_seconds()
-        if dist > 360:
-            print("=======================================================");
-            ev = Event(timestart=lastdt, timeend=dt)
-            ev.save()
-        print(str(pos.time) + '\t' + str(dist) + '\t' + str(pos.lat) + ', ' + str(pos.lon))
+        delay = int((dt - lastdt).total_seconds())
+        if delay >= 300:
+            if event is not None:
+                event.timeend = lastdt
+                eventlen = int((event.timeend - event.timestart).total_seconds() / 60)
+                if eventlen >= 5:
+                    print(str(event.timestart) + ' - ' + str(event.timeend) + ' / ' + str(eventlen) + 'm' )
+                    event.save()
+                    created = created + 1
+            event = Event(timestart=dt, timeend=dt)
         lastdt = dt
+    return created
 
 def get_last_position(source=''):
 
@@ -52,7 +57,7 @@ def get_last_event():
     try:
         latest = Event.objects.order_by('-timeend')[0].timestart
     except:
-        latest = Position.objects.order_by('time')[0].time
+        latest = get_last_position()
     return latest
 
 def parse_file_fit(filename, source='unknown'):

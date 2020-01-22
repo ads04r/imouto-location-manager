@@ -112,18 +112,22 @@ class RouteViewSet(viewsets.ViewSet):
 @csrf_exempt
 def upload(request):
 
+    if Task.objects.count() == 0:
+        fill_locations()
+
     if request.method == 'GET':
         sources = get_source_ids()
         data = {'tasks':[], 'sources':{}}
         for source in sources:
             data['sources'][source] = str(Position.objects.order_by('-time')[0].time.strftime("%Y-%m-%d"))
         for task in Task.objects.all():
+            if task.queue != 'imports':
+                continue
             item = {}
             item['id'] = task.task_hash
-            item['queue'] = task.queue
-            item['time'] = task.run_at
+            item['time'] = int(task.run_at.timestamp())
             item['label'] = task.task_name
-            item['comment'] = task.task_verbose_name
+            item['parameters'] = json.loads(task.task_params)
             data['tasks'].append(item)
         response = HttpResponse(json.dumps(data), content_type='application/json')
         return response
@@ -148,4 +152,27 @@ def upload(request):
     response = HttpResponse(json.dumps(data), content_type='application/json')
     return response
 
+def process(request):
+    
+    if Task.objects.count() == 0:
+        fill_locations()
+    
+    if request.method == 'GET':
+        data = {'tasks':[], 'stats':{}}
+        for task in Task.objects.all():
+            if task.queue != 'process':
+                continue
+            item = {}
+            item['id'] = task.task_hash
+            item['time'] = int(task.run_at.timestamp())
+            item['label'] = task.task_name
+            item['parameters'] = json.loads(task.task_params)
+            data['tasks'].append(item)
+        data['stats']['last_calculated_positon'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
+        data['stats']['last_generated_event'] = int(Event.objects.order_by('-timestart')[0].timestart.timestamp())
+        response = HttpResponse(json.dumps(data), content_type='application/json')
+        return response
 
+    if request.method != 'POST':
+        raise MethodNotAllowed(str(request.method))
+        

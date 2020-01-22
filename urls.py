@@ -20,5 +20,6 @@ router.trailing_slash = ''
 
 urlpatterns = [
     path('import', views.upload),
+    path('process', views.process),
     path('', include(router.urls)),
 ]

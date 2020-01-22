@@ -3,7 +3,7 @@ from .models import Position
 from .functions import *
 import datetime, pytz, os
 
-@background(schedule=0)
+@background(schedule=0, queue='process')
 def fill_locations():
     
     try:
@@ -11,9 +11,9 @@ def fill_locations():
     except:
         min_dt = Position.objects.aggregate(Min('time'))['time__min']
     max_dt = Position.objects.aggregate(Max('time'))['time__max']
-    # med_dt = min_dt + datetime.timedelta(days=7)
-    # if med_dt < max_dt:
-        # max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
+    med_dt = min_dt + datetime.timedelta(days=7)
+    if med_dt < max_dt:
+        max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
     
     dt = min_dt + datetime.timedelta(minutes=5)
     while(dt < max_dt):
@@ -27,6 +27,8 @@ def fill_locations():
             pos.save()
             
         dt = dt + datetime.timedelta(seconds=60)
+
+    make_new_events()
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source):
