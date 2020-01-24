@@ -17,6 +17,8 @@ tasks within a web application. I've also ported most of the code to
 Python (specifically Django) rather than have a mish-mash of PHP, C# and
 whatever else was required at the time.
 
+For those interested, 'imouto' is the japanese word for 'little sister'.
+
 Location Manager
 ----------------
 The location manager is a Django app designed to run on the same server as
