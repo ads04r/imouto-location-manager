@@ -34,7 +34,7 @@ def make_new_events(max_days=7): # 2016-07-27 13:43:25+00:00
                     print(str(event.timestart) + ' - ' + str(event.timeend) + ' / ' + str(eventlen) + 'm' )
                     event.save()
                     created = created + 1
-            event = Event(timestart=dt, timeend=dt)
+            event = Event(timestart=dt + datetime.timedelta(seconds=60), timeend=dt)
         lastdt = dt
     return created
 
