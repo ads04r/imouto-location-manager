@@ -4,12 +4,70 @@ from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, math
 from tzlocal import get_localzone
 from .models import Position, Event
+import numpy as np
+from scipy.cluster.vq import kmeans, whiten
 
-def make_new_events(max_days=7): # 2016-07-27 13:43:25+00:00
+def make_new_events(max_days=7):
     """ Call this function last, after interpolating unknown GPS positions, to create 'events' at points that the user stopped moving. Limited by max_days for sanity. """
     lastpos = get_last_position()
     if(lastpos is None):
-        return
+        return 0
+    lastev = get_last_event()
+    if lastev >= (lastpos - datetime.timedelta(hours=12)):
+        return 0
+
+    limit = lastev + datetime.timedelta(days=max_days)
+    if limit > lastpos:
+        limit = lastpos
+
+    for pos in Position.objects.filter(time__gte=lastev, time__lte=limit, speed=None):
+        pos.speed = calculate_speed(pos)
+        pos.save()
+
+    lastev = get_last_event()
+    day_gap = (limit - lastev).days + 1
+    points = []
+    for point in Position.objects.filter(time__gte=lastev, time__lte=limit, speed__lt=20):
+        item = [point.lat, point.lon]
+        points.append(item)
+    coordinates = np.array(points)
+    x, y = kmeans(coordinates, (day_gap * 5), iter = 100)
+    
+    created = 0
+    event = None
+    
+    for item in x:
+        
+        lat = item[0]
+        lon = item[1]
+        
+        print(str(lat) + ', ' + str(lon))
+        lastdt = lastev
+        
+        for pos in Position.objects.filter(time__gte=lastev, time__lt=limit).order_by('time'):
+            dist = distance(pos.lat, pos.lon, lat, lon)
+            if dist > 500:
+                continue
+            dt = pos.time
+            delay = int((dt - lastdt).total_seconds())
+            if delay >= 300:
+                if event is not None:
+                    event.timeend = lastdt
+                    eventlen = int((event.timeend - event.timestart).total_seconds() / 60)
+                    if eventlen >= 5:
+                        print(str(event.timestart) + ' - ' + str(event.timeend) + ' / ' + str(eventlen) + 'm' )
+                        event.save()
+                        created = created + 1
+                event = Event(timestart=dt + datetime.timedelta(seconds=60), timeend=dt)
+            lastdt = dt
+
+    return created
+
+def make_new_events_old(max_days=7): # 2016-07-27 13:43:25+00:00
+    """ Call this function last, after interpolating unknown GPS positions, to create 'events' at points that the user stopped moving. Limited by max_days for sanity. """
+    lastpos = get_last_position()
+    if(lastpos is None):
+        return 0
     lastev = get_last_event()
     if lastev >= (lastpos - datetime.timedelta(hours=12)):
         return 0
@@ -119,7 +177,7 @@ def parse_file_csv(filename, source='unknown', delimiter='\t'):
         csvreader = csv.reader(fp, delimiter=delimiter, quotechar='"')
         for row in csvreader:
             item = {}
-            item['date'] = datetime.datetime.strptime( row[0] + ' UTC', '%Y-%m-%d %H:%M:%S %Z')
+            item['date'] = datetime.datetime.strptime(row[0].strip(" "), '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
             item['lat'] = float(row[1])
             item['lon'] = float(row[2])
             data.append(item)
