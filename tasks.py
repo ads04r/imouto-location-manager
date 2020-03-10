@@ -16,11 +16,14 @@ def fill_locations():
         max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
 
     dt = min_dt + datetime.timedelta(minutes=5)
+    addcount = 0
     while(dt < max_dt):
         try:
             pos = Position.objects.get(time=dt)
         except:
             pos = extrapolate_position(dt, 'cron')
+            if pos:
+                addcount = addcount + 1
 
         if pos.speed is None:
             pos.speed = calculate_speed(pos)
@@ -28,7 +31,8 @@ def fill_locations():
 
         dt = dt + datetime.timedelta(seconds=60)
 
-    make_new_events() # TODO Add an argument so we only call make_new_events if we don't add any new positions.
+    if addcount == 0:
+        make_new_events()
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source):
@@ -40,6 +44,9 @@ def import_uploaded_file(filename, source):
         import_data(parse_file_fit(filename, source), source)
 
     if filename.lower().endswith('.csv'):
+        import_data(parse_file_csv(filename, source), source)
+
+    if filename.lower().endswith('.txt'):
         import_data(parse_file_csv(filename, source), source)
 
     os.remove(filename)
