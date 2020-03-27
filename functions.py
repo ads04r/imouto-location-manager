@@ -27,7 +27,7 @@ def make_new_events(max_days=7):
     lastev = get_last_event()
     day_gap = (limit - lastev).days + 1
     points = []
-    for point in Position.objects.filter(time__gte=lastev, time__lte=limit, speed__lt=20):
+    for point in Position.objects.filter(time__gte=lastev, time__lte=limit):
         item = [point.lat, point.lon]
         points.append(item)
     coordinates = np.array(points)
