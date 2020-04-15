@@ -1,7 +1,7 @@
 from django.db.models import Max, Min
 from xml.dom import minidom
 from fitparse import FitFile
-import datetime, math, csv, dateutil.parser, pytz, math
+import datetime, math, csv, dateutil.parser, pytz
 from tzlocal import get_localzone
 from .models import Position, Event
 import numpy as np

@@ -1,5 +1,5 @@
 from django.db import models
-import datetime, pytz
+import datetime, pytz, math
 
 class Position(models.Model):
     lat = models.FloatField()
@@ -36,6 +36,18 @@ class Event(models.Model):
     timestart = models.DateTimeField()
     timeend = models.DateTimeField()
     location = models.ForeignKey(Location, on_delete=models.CASCADE, blank=True, null=True)
+    def __distance(self, lat1, lon1, lat2, lon2):
+        """ Returns the distance, in km, between lat1,lon1 and lat2,lon2. """
+        radius = 6371.0 # km
+
+        dlat = math.radians(lat2-lat1)
+        dlon = math.radians(lon2-lon1)
+        a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        d = radius * c
+
+        return(d)
+
     def geojson(self):
         lasttime = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
         lastlat = 0.0
@@ -46,7 +58,10 @@ class Event(models.Model):
         maxlon = -360.0
         track = []
         geo = []
+        dist = 0.0
         for point in Position.objects.filter(time__gte=self.timestart).filter(time__lte=self.timeend):
+            if ((lastlat != 0.0) & (lastlon != 0.0)):
+                dist = dist + self.__distance(lastlat, lastlon, point.lat, point.lon)
             if (point.time - lasttime).total_seconds() > 90:
                 if len(track) > 1:
                     geo.append(track)
@@ -69,7 +84,7 @@ class Event(models.Model):
             lastlon = point.lon
         if len(track) > 1:
             geo.append(track)
-        ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{}, "geometry":{"type":"MultiLineString","coordinates":geo}}
+        ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":{"type":"MultiLineString","coordinates":geo}}
         return ret
     class Meta:
         app_label = 'locman'
