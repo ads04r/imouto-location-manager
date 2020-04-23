@@ -55,7 +55,7 @@ class PositionViewSet(viewsets.ViewSet):
         position/[timestamp] - Get the location for a specific timestamp (format is YYYYMMDDHHMMSS, always UTC)
     """
     def list(self, request):
-        queryset = Position.objects.all()[0:10]
+        queryset = Position.objects.order_by('-time')[0:10]
         serializer = PositionSerializer(queryset, many=True)
         return Response(serializer.data)
 
