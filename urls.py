@@ -21,5 +21,6 @@ router.trailing_slash = ''
 urlpatterns = [
     path('import', views.upload),
     path('process', views.process),
+    path('event/<ds>/<lat>/<lon>', views.locationevent, name='event-list'),
     path('', include(router.urls)),
 ]

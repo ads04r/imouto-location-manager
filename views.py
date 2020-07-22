@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.conf import settings
+from rest_framework.decorators import api_view, renderer_classes
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,7 +11,7 @@ from rest_framework import status, viewsets
 
 from .models import *
 from .serializers import *
-from .functions import extrapolate_position, calculate_speed, get_last_position, get_source_ids
+from .functions import extrapolate_position, calculate_speed, get_last_position, get_source_ids, distance
 from .tasks import *
 from background_task.models import Task
 
@@ -21,31 +22,41 @@ class EventViewSet(viewsets.ViewSet):
     The Event namespace is for querying location events.
     
         event - Get a list of the last known day's worth of events
-        event/[timestamp] - Get the events for a specific day (format is YYYY-MM-DD)
         event/[id] - Get detailed information about a particular event
+        event/[timestamp] - Get the events for a specific day (format is YYYY-MM-DD)
+        event/[timestamp]/[lat]/[lon] - Get the events at a location for a specific day
     """
     def list(self, request):
         lastevent = Event.objects.all().order_by('-timestart')[0]
         queryset = Event.objects.filter(timeend__gte=lastevent.timestart)
         serializer = EventSerializer(queryset, many=True)
         return Response(serializer.data)
-        
+
     def retrieve(self, request, pk=None):
-        f = pk.split('-')
-        if len(f) == 3:
-            dsyear = int(f[0])
-            dsmonth = int(f[1])
-            dsday = int(f[2])
-            dts = datetime.datetime(dsyear, dsmonth, dsday, 0, 0, 0, tzinfo=pytz.UTC)
-            dte = datetime.datetime(dsyear, dsmonth, dsday, 23, 59, 59, tzinfo=pytz.UTC)
-            queryset = Event.objects.filter(timestart__lte=dte).filter(timeend__gte=dts)
+        if ',' in pk:
+            f = pk.split(',')
+            lat = float(f[0])
+            lon = float(f[1])
+            queryset = Event.objects.none()
             serializer = EventSerializer(queryset, many=True)
             return Response(serializer.data)
         else:
-            id = int(pk)
-            event = Event.objects.get(id=id)
-            data = {"id": id, "timestart": event.timestart, "timeend": event.timeend, "geo": event.geojson()}
-            return Response(data)
+            f = pk.split('-')
+            if len(f) == 3:
+                dsyear = int(f[0])
+                dsmonth = int(f[1])
+                dsday = int(f[2])
+                dts = datetime.datetime(dsyear, dsmonth, dsday, 0, 0, 0, tzinfo=pytz.UTC)
+                dte = datetime.datetime(dsyear, dsmonth, dsday, 23, 59, 59, tzinfo=pytz.UTC)
+                queryset = Event.objects.filter(timestart__lte=dte).filter(timeend__gte=dts)
+                serializer = EventSerializer(queryset, many=True)
+                return Response(serializer.data)
+            else:
+                id = int(pk)
+                event = Event.objects.get(id=id)
+                data = {"id": id, "timestart": event.timestart, "timeend": event.timeend, "geo": event.geojson()}
+                return Response(data)
+
 
 class PositionViewSet(viewsets.ViewSet):
     """
@@ -176,3 +187,46 @@ def process(request):
     if request.method != 'POST':
         raise MethodNotAllowed(str(request.method))
         
+@api_view(['GET'])
+def locationevent(request, ds, lat, lon):
+    """
+    The Event namespace is for querying location events.
+    
+        event - Get a list of the last known day's worth of events
+        event/[id] - Get detailed information about a particular event
+        event/[timestamp] - Get the events for a specific day (format is YYYY-MM-DD)
+        event/[timestamp]/[lat]/[lon] - Get the events at a location for a specific day
+    """
+    ret = []
+    dss = str(ds).replace("-", "").strip()
+    dssyear = int(dss[0:4])
+    dssmonth = int(dss[4:6])
+    dssday = int(dss[6:8])
+    dts = datetime.datetime(dssyear, dssmonth, dssday, 0, 0, 0, tzinfo=pytz.UTC)
+    dte = datetime.datetime(dssyear, dssmonth, dssday, 23, 59, 59, tzinfo=pytz.UTC)
+    minlat = float(lat) - 0.05
+    maxlat = float(lat) + 0.05
+    minlon = float(lon) - 0.05
+    maxlon = float(lon) + 0.05
+
+    starttime = dts
+    lasttime = dts
+    for position in Position.objects.filter(time__gte=dts, time__lte=dte, lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
+        if starttime == dts:
+            starttime = position.time
+            lasttime = position.time
+        dist = distance(float(lat), float(lon), position.lat, position.lon)
+        if dist > 100:
+            continue
+        if (position.time - lasttime).total_seconds() > 300:
+            item = {'timestart': starttime, 'timeend': lasttime}
+            ret.append(item)
+            starttime = position.time
+        lasttime = position.time
+    if starttime > dts:
+        item = {'timestart': starttime, 'timeend': lasttime}
+        ret.append(item)
+
+    serializer = EventSerializer(ret, many=True)
+    response = Response(data=serializer.data)
+    return response
