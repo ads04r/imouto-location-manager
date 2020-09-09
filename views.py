@@ -209,6 +209,12 @@ def locationevent(request, ds, lat, lon):
     minlon = float(lon) - 0.05
     maxlon = float(lon) + 0.05
 
+    try:
+        local_loc = Location.objects.get(lat=lat, lon=lon)
+    except:
+        local_loc = Location(lat=lat, lon=lon, description='')
+        local_loc.save()
+
     starttime = dts
     lasttime = dts
     for position in Position.objects.filter(time__gte=dts, time__lte=dte, lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
