@@ -214,6 +214,14 @@ def locationevent(request, ds, lat, lon):
     except:
         local_loc = Location(lat=lat, lon=lon, description='')
         local_loc.save()
+    if local_loc.description == '':
+        description = get_location_description(lat, lon)
+        if description == '':
+            description = 'Unknown Location'
+        if len(description) > 255:
+            description = description[0:255]
+        local_loc.description = description
+        local_loc.save()
 
     starttime = dts
     lasttime = dts

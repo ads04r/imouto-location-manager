@@ -23,7 +23,11 @@ class Position(models.Model):
 class Location(models.Model):
     lat = models.FloatField()
     lon = models.FloatField()
-    description = models.CharField(max_length=128, default='')
+    description = models.CharField(max_length=255, default='')
+    def __str__(self):
+        if self.description == '':
+            return 'Unknown location'
+        return self.description
     class Meta:
         app_label = 'locman'
         verbose_name = 'location'

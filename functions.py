@@ -1,11 +1,23 @@
 from django.db.models import Max, Min
 from xml.dom import minidom
 from fitparse import FitFile
-import datetime, math, csv, dateutil.parser, pytz
+import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
 from tzlocal import get_localzone
 from .models import Position, Event
 import numpy as np
 from scipy.cluster.vq import kmeans, whiten
+
+def get_location_description(lat, lon):
+    url = "https://nominatim.openstreetmap.org/search.php?q=" + str(lat) + "%2C" + str(lon) + "&polygon_geojson=1&format=jsonv2"
+    request = urllib.request.urlopen(url)
+    if(request.getcode() != 200):
+        return ""
+    data = json.loads(request.read())
+    if len(data) == 0:
+        return ""
+    if 'display_name' in data[0]:
+        return data[0]['display_name']
+    return ""
 
 def make_new_events(max_days=7):
     """ Call this function last, after interpolating unknown GPS positions, to create 'events' at points that the user stopped moving. Limited by max_days for sanity. """
