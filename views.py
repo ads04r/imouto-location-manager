@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.conf import settings
+from django.db import OperationalError
 from rest_framework.decorators import api_view, renderer_classes
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
@@ -221,7 +222,11 @@ def locationevent(request, ds, lat, lon):
         if len(description) > 255:
             description = description[0:255]
         local_loc.description = description
-        local_loc.save()
+        try:
+            local_loc.save()
+        except OperationalError:
+            local_loc.description = 'Unknown Location'
+            local_loc.save()
 
     starttime = dts
     lasttime = dts
