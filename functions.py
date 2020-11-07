@@ -133,7 +133,10 @@ def get_last_event():
 def parse_file_fit(filename, source='unknown'):
     """ Parses an ANT-FIT file. The source is just a string to uniquely identify a particular data source, such as 'my_smartwatch' or 'my_bike_tracker'. """
     data = []
-    fit = FitFile(filename)
+    try:
+        fit = FitFile(filename)
+    except:
+        return []
     tz = get_localzone()
     tz = pytz.UTC
     for record in fit.get_messages('record'):
