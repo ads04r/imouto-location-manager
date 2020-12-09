@@ -4,6 +4,7 @@ import datetime, pytz, math
 class Position(models.Model):
     lat = models.FloatField()
     lon = models.FloatField()
+    elevation = models.FloatField(null=True, blank=True)
     time = models.DateTimeField(unique=True)
     speed = models.IntegerField(blank=True, null=True)
     explicit = models.BooleanField(default=True)
