@@ -35,19 +35,27 @@ def fill_locations():
         make_new_events()
 
 @background(schedule=0, queue='imports')
-def import_uploaded_file(filename, source):
+def import_uploaded_file(filename, source, format=""):
     """ A background task for importing a data file, previously uploaded via a POST to the web interface. Once the import is complete, the function calculates the speed for all imported position values. """
-    if filename.lower().endswith('.gpx'):
-        import_data(parse_file_gpx(filename, source), source)
+    if format == '':
 
-    if filename.lower().endswith('.fit'):
-        import_data(parse_file_fit(filename, source), source)
+        if filename.lower().endswith('.gpx'):
+            import_data(parse_file_gpx(filename, source), source)
+        if filename.lower().endswith('.fit'):
+            import_data(parse_file_fit(filename, source), source)
+        if filename.lower().endswith('.csv'):
+            import_data(parse_file_csv(filename, source), source)
+        if filename.lower().endswith('.txt'):
+            import_data(parse_file_csv(filename, source), source)
 
-    if filename.lower().endswith('.csv'):
-        import_data(parse_file_csv(filename, source), source)
+    else:
 
-    if filename.lower().endswith('.txt'):
-        import_data(parse_file_csv(filename, source), source)
+        if format == 'gpx':
+            import_data(parse_file_gpx(filename, source), source)
+        if format == 'fit':
+            import_data(parse_file_fit(filename, source), source)
+        if format == 'csv':
+            import_data(parse_file_csv(filename, source), source)
 
     os.remove(filename)
 
