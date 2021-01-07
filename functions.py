@@ -182,6 +182,8 @@ def parse_file_gpx(filename, source='unknown'):
         item['lon'] = point.attributes['lon'].value
         for timeval in point.getElementsByTagName('time'):
             item['date'] = dateutil.parser.parse(timeval.childNodes[0].nodeValue)
+        for altval in point.getElementsByTagName('ele'):
+            item['alt'] = float(altval.childNodes[0].nodeValue)
         data.append(item)
     return data
 
@@ -211,6 +213,8 @@ def import_data(data, source='unknown'):
             pos = Position.objects.get(time=row['date'])
         except:
             pos = Position(time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
+            if 'alt' in row:
+                pos.elevation = float(row['alt'])
             pos.save()
 
 def extrapolate_position(dt, source='realtime'):
