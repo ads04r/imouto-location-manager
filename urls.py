@@ -16,6 +16,7 @@ router = DocumentedRouter()
 router.register(r'event', views.EventViewSet, basename='event')
 router.register(r'position', views.PositionViewSet, basename='position')
 router.register(r'route', views.RouteViewSet, basename='route')
+router.register(r'elevation', views.ElevationViewSet, basename='elevation')
 router.trailing_slash = ''
 
 urlpatterns = [

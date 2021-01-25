@@ -121,6 +121,36 @@ class RouteViewSet(viewsets.ViewSet):
         data = {"timestart": event.timestart, "timeend": event.timeend, "geo": event.geojson()}
         return Response(data)
 
+class ElevationViewSet(viewsets.ViewSet):
+    """
+    The Elevation namespace is for querying height positions in batch, for displaying as a graph
+    """
+    def list(self, request):
+        queryset = []
+        serializer = RouteSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        ds = str(pk)
+        dssyear = int(ds[0:4])
+        dssmonth = int(ds[4:6])
+        dssday = int(ds[6:8])
+        dsshour = int(ds[8:10])
+        dssmin = int(ds[10:12])
+        dsssec = int(ds[12:14])
+        dseyear = int(ds[14:18])
+        dsemonth = int(ds[18:20])
+        dseday = int(ds[20:22])
+        dsehour = int(ds[22:24])
+        dsemin = int(ds[24:26])
+        dsesec = int(ds[26:])
+        dts = datetime.datetime(dssyear, dssmonth, dssday, dsshour, dssmin, dsssec, tzinfo=pytz.UTC)
+        dte = datetime.datetime(dseyear, dsemonth, dseday, dsehour, dsemin, dsesec, tzinfo=pytz.UTC)
+        data = []
+        for pos in Position.objects.filter(time__gte=dts, time__lte=dte, explicit=True).exclude(elevation=None):
+            data.append((pos.time, pos.elevation))
+        return Response(data)
+
 @csrf_exempt
 def upload(request):
 
