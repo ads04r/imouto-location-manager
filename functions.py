@@ -143,7 +143,7 @@ def parse_file_fit(filename, source='unknown'):
         item = {}
         for recitem in record:
             k = recitem.name
-            if ((k != 'position_lat') & (k != 'position_long') & (k != 'timestamp')):
+            if ((k != 'position_lat') & (k != 'position_long') & (k != 'timestamp') & (k != 'enhanced_altitude')):
                 continue
             v = {}
             v['value'] = recitem.value
@@ -168,6 +168,8 @@ def parse_file_fit(filename, source='unknown'):
         newitem = {}
         newitem['lat'] = item['position_lat']['value']
         newitem['lon'] = item['position_long']['value']
+        if 'enhanced_altitude' in item:
+            newitem['alt'] = float(item['enhanced_altitude']['value'])
         newitem['date'] = item['timestamp']['value']
         data.append(newitem)
     return data
@@ -211,6 +213,9 @@ def import_data(data, source='unknown'):
     for row in data:
         try:
             pos = Position.objects.get(time=row['date'])
+            if ((pos.elevation is None) & ('alt' in row)):
+                pos.elevation = float(row['alt'])
+                pos.save()
         except:
             pos = Position(time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
             if 'alt' in row:
