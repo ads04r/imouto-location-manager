@@ -58,7 +58,8 @@ the Viewer. The second method is via a management command.
   setting this to something descriptive like 'phone_gps' or 'garmin_watch'.
 * `format` is optional, and refers to the format of the data in the file
   being imported. If you omit it, the importer guesses based on the
-  file extension. It can be set to 'fit', 'csv' or 'gpx'.
+  file extension. It can be set to 'fit', 'csv' or 'gpx'. Handy if you're
+  the sort of person who likes to give files unusual extensions.
 
 Usage - Querying Data
 ---------------------
