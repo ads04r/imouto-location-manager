@@ -3,9 +3,56 @@ from xml.dom import minidom
 from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
 from tzlocal import get_localzone
-from .models import Position, Event
+from .models import Position, Event, Location
 import numpy as np
 from scipy.cluster.vq import kmeans, whiten
+
+def get_location_events(dts, dte, lat, lon, dist=0.05):
+
+    minlat = float(lat) - dist
+    maxlat = float(lat) + dist
+    minlon = float(lon) - dist
+    maxlon = float(lon) + dist
+
+    ret = []
+
+    try:
+        local_loc = Location.objects.get(lat=lat, lon=lon)
+    except:
+        local_loc = Location(lat=lat, lon=lon, description='')
+        local_loc.save()
+    if local_loc.description == '':
+        description = get_location_description(lat, lon)
+        if description == '':
+            description = 'Unknown Location'
+        if len(description) > 255:
+            description = description[0:255]
+        local_loc.description = description
+        try:
+            local_loc.save()
+        except OperationalError:
+            local_loc.description = 'Unknown Location'
+            local_loc.save()
+
+    starttime = dts
+    lasttime = dts
+    for position in Position.objects.filter(time__gte=dts, time__lte=dte, lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
+        if starttime == dts:
+            starttime = position.time
+            lasttime = position.time
+        dist = distance(float(lat), float(lon), position.lat, position.lon)
+        if dist > 100:
+            continue
+        if (position.time - lasttime).total_seconds() > 300:
+            item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+            ret.append(item)
+            starttime = position.time
+        lasttime = position.time
+    if starttime > dts:
+        item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+        ret.append(item)
+
+    return ret
 
 def get_location_description(lat, lon):
     url = "https://nominatim.openstreetmap.org/search.php?q=" + str(lat) + "%2C" + str(lon) + "&polygon_geojson=1&format=jsonv2"

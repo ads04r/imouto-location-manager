@@ -12,7 +12,7 @@ from rest_framework import status, viewsets
 
 from .models import *
 from .serializers import *
-from .functions import extrapolate_position, calculate_speed, get_last_position, get_source_ids, distance
+from .functions import extrapolate_position, calculate_speed, get_last_position, get_source_ids, distance, get_location_events
 from .tasks import *
 from background_task.models import Task
 
@@ -147,8 +147,18 @@ class ElevationViewSet(viewsets.ViewSet):
         dts = datetime.datetime(dssyear, dssmonth, dssday, dsshour, dssmin, dsssec, tzinfo=pytz.UTC)
         dte = datetime.datetime(dseyear, dsemonth, dseday, dsehour, dsemin, dsesec, tzinfo=pytz.UTC)
         data = []
+        lat = None
+        lon = None
+        dist = 0
         for pos in Position.objects.filter(time__gte=dts, time__lte=dte, explicit=True).exclude(elevation=None):
-            data.append((pos.time, pos.elevation))
+            if not(lat is None):
+                dist = dist + distance(lat, lon, pos.lat, pos.lon)
+            e = pos.elevation
+            if e < 0:
+                e = 0
+            data.append((pos.time, dist, e))
+            lat = pos.lat
+            lon = pos.lon
         return Response(data)
 
 @csrf_exempt
@@ -235,46 +245,8 @@ def locationevent(request, ds, lat, lon):
     dssday = int(dss[6:8])
     dts = datetime.datetime(dssyear, dssmonth, dssday, 0, 0, 0, tzinfo=pytz.UTC)
     dte = datetime.datetime(dssyear, dssmonth, dssday, 23, 59, 59, tzinfo=pytz.UTC)
-    minlat = float(lat) - 0.05
-    maxlat = float(lat) + 0.05
-    minlon = float(lon) - 0.05
-    maxlon = float(lon) + 0.05
 
-    try:
-        local_loc = Location.objects.get(lat=lat, lon=lon)
-    except:
-        local_loc = Location(lat=lat, lon=lon, description='')
-        local_loc.save()
-    if local_loc.description == '':
-        description = get_location_description(lat, lon)
-        if description == '':
-            description = 'Unknown Location'
-        if len(description) > 255:
-            description = description[0:255]
-        local_loc.description = description
-        try:
-            local_loc.save()
-        except OperationalError:
-            local_loc.description = 'Unknown Location'
-            local_loc.save()
-
-    starttime = dts
-    lasttime = dts
-    for position in Position.objects.filter(time__gte=dts, time__lte=dte, lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
-        if starttime == dts:
-            starttime = position.time
-            lasttime = position.time
-        dist = distance(float(lat), float(lon), position.lat, position.lon)
-        if dist > 100:
-            continue
-        if (position.time - lasttime).total_seconds() > 300:
-            item = {'timestart': starttime, 'timeend': lasttime}
-            ret.append(item)
-            starttime = position.time
-        lasttime = position.time
-    if starttime > dts:
-        item = {'timestart': starttime, 'timeend': lasttime}
-        ret.append(item)
+    ret = get_location_events(dts, dte, lat, lon)
 
     serializer = EventSerializer(ret, many=True)
     response = Response(data=serializer.data)
