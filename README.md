@@ -46,7 +46,7 @@ the Viewer. The second method is via a management command.
 
 * `file` refers, obviously, to the file containing the GPS data you would
   like to import. This can be a GPX file, a simple CSV file of format
-  timestamp-latitude-longidude, or a FIT file, most commonly created by
+  timestamp-latitude-longitude, or a FIT file, most commonly created by
   Garmin hardware.
 * `source` is a string stored alongside each location reading in the file
   that serves as an indicator as to how the data was measured. Despite
@@ -81,4 +81,8 @@ following views:
   clear when this has happened, the 'explicit' property will be false.
 * `route` for returning a polyline of a route taken. This needs to be called
   with the start and end times of a journey, and returns a GeoJSON structure.
+* `elevation` primarily for returning an elevation graph. This needs to be
+  called with start and end times, and returns a list of objects consisting
+  of a date stamp, a horizontal distance since the start of the route in
+  metres, and a height also in metres.
 
