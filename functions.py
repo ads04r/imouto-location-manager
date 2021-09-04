@@ -1,4 +1,5 @@
 from django.db.models import Max, Min
+from django.db.utils import OperationalError
 from xml.dom import minidom
 from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
