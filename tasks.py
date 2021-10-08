@@ -31,8 +31,8 @@ def fill_locations():
 
         dt = dt + datetime.timedelta(seconds=60)
 
-    if addcount == 0:
-        make_new_events()
+#    if addcount == 0:
+#        make_new_events()
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):
@@ -57,7 +57,8 @@ def import_uploaded_file(filename, source, format=""):
         if format == 'csv':
             import_data(parse_file_csv(filename, source), source)
 
-    os.remove(filename)
+    if os.path.exists(filename):
+        os.remove(filename)
 
     dt = datetime.datetime.utcnow().replace(tzinfo=pytz.utc) - datetime.timedelta(days=30)
     for pos in Position.objects.filter(time__gte=dt).filter(speed=None).order_by('time'):
