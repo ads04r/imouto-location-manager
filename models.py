@@ -1,5 +1,28 @@
 from django.db import models
+from macaddress.fields import MACAddressField
 import datetime, pytz, math
+
+class Scan(models.Model):
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+    time = models.DateTimeField()
+    ssid = models.CharField(max_length=255, default='')
+    mac = MACAddressField(null=True, blank=True)
+    type = models.SlugField(max_length=32, default='wifi')
+    class Meta:
+        app_label = 'locman'
+        verbose_name = 'scan'
+        verbose_name_plural = 'scans'
+        indexes = [
+            models.Index(fields=['lat', 'lon']),
+            models.Index(fields=['ssid']),
+            models.Index(fields=['mac']),
+            models.Index(fields=['type']),
+            models.Index(fields=['time'])
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['mac', 'time'], name='unique_mac_time')
+        ]
 
 class Position(models.Model):
     lat = models.FloatField()
