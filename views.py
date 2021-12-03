@@ -191,6 +191,9 @@ def upload(request):
     temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_uploads')
     temp_file = os.path.join(temp_dir, str(datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")) + "_" + uploaded_file.name)
     file_source = request.POST['file_source']
+    file_format = ''
+    if 'file_format' in request.POST:
+        file_format = request.POST['file_format']
     
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
@@ -200,7 +203,7 @@ def upload(request):
     writer.close()
     
     data = {'file':uploaded_file.name, 'size':uploaded_file.size, 'type':uploaded_file.content_type, 'source':file_source}
-    import_uploaded_file(temp_file, file_source)
+    import_uploaded_file(temp_file, file_source, file_format)
     response = HttpResponse(json.dumps(data), content_type='application/json')
     return response
 
