@@ -37,7 +37,7 @@ def get_location_events(dts, dte, lat, lon, dist=0.05):
 
     starttime = dts
     lasttime = dts
-    for position in Position.objects.filter(time__gte=dts, time__lte=dte, lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
+    for position in Position.objects.filter(time__gte=dts - datetime.timedelta(hours=12), time__lte=dte + datetime.timedelta(hours=24), lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
         if starttime == dts:
             starttime = position.time
             lasttime = position.time
@@ -45,13 +45,15 @@ def get_location_events(dts, dte, lat, lon, dist=0.05):
         if dist > 100:
             continue
         if (position.time - lasttime).total_seconds() > 300:
-            item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
-            ret.append(item)
+            if ((starttime >= dts) & (starttime <= dte) & (starttime != lasttime)):
+                item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+                ret.append(item)
             starttime = position.time
         lasttime = position.time
     if starttime > dts:
-        item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
-        ret.append(item)
+        if ((starttime >= dts) & (starttime <= dte) & (starttime != lasttime)):
+            item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+            ret.append(item)
 
     return ret
 
