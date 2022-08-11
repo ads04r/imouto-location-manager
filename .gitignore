@@ -1,4 +1,4 @@
 *.pyc
-__pycache__
-__init__.py
-migrations
+locman/__pycache__
+locman/__init__.py
+locman/migrations
