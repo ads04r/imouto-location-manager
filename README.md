@@ -53,19 +53,19 @@ many disadvantages in stability and performance.
 
 2. Clone the repository into a local directory, eg
 
-    git clone https://github.com/ads04r/imouto-location-manager.git imouto
+   `git clone https://github.com/ads04r/imouto-location-manager.git imouto`
 
    will clone the repository into the local directory 'imouto'.
 
 3. Change into the directory
 
-    cd imouto
+   `cd imouto`
 
 4. Install all the python requirements. I recomment using the python
    executable rather than pip on the command line because you can be sure
    you install it in the version of python you are using
 
-    python -m pip install -r requirements.txt
+   `python -m pip install -r requirements.txt`
 
 5. Rename the `settings_local.py.dist` file in the imouto directory
    `settings_local.py` and edit it as appropriate. More docs have
@@ -79,11 +79,11 @@ many disadvantages in stability and performance.
 
 7. Create the migrations for the Django app
 
-    python manage.py makemigrations
+   `python manage.py makemigrations`
 
 8. Run the migrations
 
-    python manage.py migrate
+   `python manage.py migrate`
 
 9. From hereon in there are three things that need to be started.
    The main server, and two background process queues. I strongly
@@ -93,9 +93,9 @@ many disadvantages in stability and performance.
    meantime each of the above can be started interactively as
    follows...
 
-    python manage.py runserver 0:8000
-    python manage.py process_tasks --queue=process
-    python manage.py provess_tasks --queue=imports
+   `python manage.py runserver 0:8000`
+   `python manage.py process_tasks --queue=process`
+   `python manage.py provess_tasks --queue=imports`
 
    More docs to follow when I have time.
 
