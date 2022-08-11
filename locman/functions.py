@@ -5,8 +5,6 @@ from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
 from tzlocal import get_localzone
 from .models import Position, Event, Location
-import numpy as np
-from scipy.cluster.vq import kmeans, whiten
 
 def get_location_events(dts, dte, lat, lon, dist=0.05):
 
@@ -68,95 +66,6 @@ def get_location_description(lat, lon):
     if 'display_name' in data[0]:
         return data[0]['display_name']
     return ""
-
-def make_new_events(max_days=7):
-    """ Call this function last, after interpolating unknown GPS positions, to create 'events' at points that the user stopped moving. Limited by max_days for sanity. """
-    lastpos = get_last_position()
-    if(lastpos is None):
-        return 0
-    lastev = get_last_event()
-    if lastev >= (lastpos - datetime.timedelta(hours=12)):
-        return 0
-
-    limit = lastev + datetime.timedelta(days=max_days)
-    if limit > lastpos:
-        limit = lastpos
-
-    for pos in Position.objects.filter(time__gte=lastev, time__lte=limit, speed=None):
-        pos.speed = calculate_speed(pos)
-        pos.save()
-
-    lastev = get_last_event()
-    day_gap = (limit - lastev).days + 1
-    points = []
-    for point in Position.objects.filter(time__gte=lastev, time__lte=limit):
-        item = [point.lat, point.lon]
-        points.append(item)
-    coordinates = np.array(points)
-    x, y = kmeans(coordinates, (day_gap * 5), iter = 100)
-    
-    created = 0
-    event = None
-    
-    for item in x:
-        
-        lat = item[0]
-        lon = item[1]
-        
-        print(str(lat) + ', ' + str(lon))
-        lastdt = lastev
-        
-        for pos in Position.objects.filter(time__gte=lastev, time__lt=limit).order_by('time'):
-            dist = distance(pos.lat, pos.lon, lat, lon)
-            if dist > 500:
-                continue
-            dt = pos.time
-            delay = int((dt - lastdt).total_seconds())
-            if delay >= 300:
-                if event is not None:
-                    event.timeend = lastdt
-                    eventlen = int((event.timeend - event.timestart).total_seconds() / 60)
-                    if eventlen >= 5:
-                        print(str(event.timestart) + ' - ' + str(event.timeend) + ' / ' + str(eventlen) + 'm' )
-                        event.save()
-                        created = created + 1
-                event = Event(timestart=dt + datetime.timedelta(seconds=60), timeend=dt)
-            lastdt = dt
-
-    return created
-
-def make_new_events_old(max_days=7): # 2016-07-27 13:43:25+00:00
-    """ Call this function last, after interpolating unknown GPS positions, to create 'events' at points that the user stopped moving. Limited by max_days for sanity. """
-    lastpos = get_last_position()
-    if(lastpos is None):
-        return 0
-    lastev = get_last_event()
-    if lastev >= (lastpos - datetime.timedelta(hours=12)):
-        return 0
-
-    limit = lastev + datetime.timedelta(days=max_days)
-
-    for pos in Position.objects.filter(time__gte=lastev, time__lt=limit, speed=None):
-        pos.speed = calculate_speed(pos)
-        pos.save()
-
-    lastdt = lastev
-    created = 0
-    event = None
-    for pos in Position.objects.filter(time__gt=lastev, time__lt=limit, speed=0):
-        dt = pos.time
-        delay = int((dt - lastdt).total_seconds())
-        if delay >= 300:
-            if event is not None:
-                event.timeend = lastdt
-                eventlen = int((event.timeend - event.timestart).total_seconds() / 60)
-                if eventlen >= 5:
-                    print(str(event.timestart) + ' - ' + str(event.timeend) + ' / ' + str(eventlen) + 'm' )
-                    event.save()
-                    created = created + 1
-            event = Event(timestart=dt + datetime.timedelta(seconds=60), timeend=dt)
-        lastdt = dt
-    return created
 
 def get_last_position(source=''):
     """ Returns a datetime referencing the last position in the user's data. Optionally, specify a data source ID to restrict the search to that source. """
