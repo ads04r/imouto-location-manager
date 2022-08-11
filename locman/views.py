@@ -223,8 +223,15 @@ def process(request):
             item['label'] = task.task_name
             item['parameters'] = json.loads(task.task_params)
             data['tasks'].append(item)
-        data['stats']['last_calculated_positon'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
-        data['stats']['last_generated_event'] = int(Event.objects.order_by('-timestart')[0].timestart.timestamp())
+        now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+        try:
+            data['stats']['last_calculated_positon'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
+        except IndexError:
+            data['stats']['last_calculated_position'] = int(now.timestamp())
+        try:
+            data['stats']['last_generated_event'] = int(Event.objects.order_by('-timestart')[0].timestart.timestamp())
+        except IndexError:
+            data['stats']['last_generated_event'] = int(now.timestamp())
         response = HttpResponse(json.dumps(data), content_type='application/json')
         return response
 

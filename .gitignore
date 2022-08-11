@@ -1,3 +1,7 @@
 *.pyc
 locman/__pycache__
 locman/__init__.py
+locman/migrations/[0-9]*_*.py
+media/photos
+services
+imouto/settings_local.py

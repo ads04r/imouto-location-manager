@@ -11,6 +11,8 @@ def fill_locations():
     except:
         min_dt = Position.objects.aggregate(Min('time'))['time__min']
     max_dt = Position.objects.aggregate(Max('time'))['time__max']
+    if max_dt is None: # The database is probably empty, so just quit quietly
+        return
     med_dt = min_dt + datetime.timedelta(days=7)
     if med_dt < max_dt:
         max_dt = med_dt # ensure we don't go completely crazy with the extrapolating

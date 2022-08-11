@@ -1,0 +1,28 @@
+"""
+Local settings for Imouto Location Manager
+
+"""
+
+SECRET_KEY = '' # This needs to be populated somehow
+DEBUG = False # Should always be False in production
+
+ALLOWED_HOSTS = [] # Should include the hostname of the server running your instance
+
+
+# Database
+# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'OPTIONS': { 'charset': 'utf8mb4', 'read_default_file': './database.conf', }, # path to database config should be absolute
+    }
+}
+
+
+# Static files (CSS, JavaScript, Images)
+
+STATIC_URL = '/static/'
+STATIC_ROOT = './static' # This should be absolute
+
+MEDIA_ROOT = './media' # This should be absolute
