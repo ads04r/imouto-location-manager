@@ -24,6 +24,7 @@ For those interested, 'imouto' is the japanese word for 'little sister'.
 
 Location Manager
 ----------------
+
 The location manager is a Django app designed to run on the same server as
 the viewer app (https://github.com/ads04r/imouto-viewer) but could run
 independently if you need it to. The core functionality of Imouto has always
@@ -37,6 +38,67 @@ to the viewer app was required.
 The Location Manager app isn't particularly user friendly. It's intended
 to be called mostly by the Viewer app, but you can do some useful querying
 of your GPS data if you speak JSON.
+
+Installation
+------------
+
+The location manager is a Django app. You can run it on its own server,
+or on the same server as the viewer, with a different port number. If you
+really want some un-necessary pain, you can try and join the viewer and
+the location manager into the same Django project, but this isn't
+recommended. Although this is how they were initially written, there are
+many disadvantages in stability and performance.
+
+1. (optional, but recommended) create a Python Virtual Environment (venv).
+
+2. Clone the repository into a local directory, eg
+
+    git clone https://github.com/ads04r/imouto-location-manager.git imouto
+
+   will clone the repository into the local directory 'imouto'.
+
+3. Change into the directory
+
+    cd imouto
+
+4. Install all the python requirements. I recomment using the python
+   executable rather than pip on the command line because you can be sure
+   you install it in the version of python you are using
+
+    python -m pip install -r requirements.txt
+
+5. Rename the `settings_local.py.dist` file in the imouto directory
+   `settings_local.py` and edit it as appropriate. More docs have
+   yet to be written, it's assumed for now that you know what you're
+   doing.
+
+6. If necessary, set up a database (MariaDB is officially supported but
+   there's no reason PostGreSQL or SQLite won't work) and make sure
+   `settings_local.py` and `database.conf` are populated accordingly.
+   Again, it's assumed here you know what you're doing.
+
+7. Create the migrations for the Django app
+
+    python manage.py makemigrations
+
+8. Run the migrations
+
+    python manage.py migrate
+
+9. From hereon in there are three things that need to be started.
+   The main server, and two background process queues. I strongly
+   recommend using Apache or Nginx rather than Django's built-in
+   HTTP server, particularly if you're running in production, and
+   writing systemd scripts for the two background queues. In the
+   meantime each of the above can be started interactively as
+   follows...
+
+    python manage.py runserver 0:8000
+    python manage.py process_tasks --queue=process
+    python manage.py provess_tasks --queue=imports
+
+   More docs to follow when I have time.
+
 
 Usage - Importing Data
 ----------------------
