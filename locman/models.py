@@ -41,7 +41,9 @@ class Position(models.Model):
             models.Index(fields=['speed']),
             models.Index(fields=['explicit']),
             models.Index(fields=['source']),
-            models.Index(fields=['time']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['time', 'source', 'explicit'], name='locman_time_source_expl_uniq')
         ]
 
 class Location(models.Model):
