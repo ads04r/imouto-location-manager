@@ -1,10 +1,36 @@
 from django.db.models import Max, Min
 from django.db.utils import OperationalError
+from django.core.cache import cache
 from xml.dom import minidom
 from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
 from tzlocal import get_localzone
 from .models import Position, Event, Location
+
+def get_process_stats():
+
+    now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+    ret = {}
+
+    if cache.has_key('last_calculated_position'):
+        ret['last_calculated_position'] = cache.get('last_calculated_position')
+    else:
+        try:
+            ret['last_calculated_position'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
+            cache.set('last_calculated_position', ret['last_calculated_position'], 86400)
+        except IndexError:
+            ret['last_calculated_position'] = int(now.timestamp())
+
+    if cache.has_key('last_generated_event'):
+        ret['last_generated_event'] = cache.get('last_generated_event')
+    else:
+        try:
+            ret['last_generated_event'] = int(Event.objects.order_by('-timestart')[0].timestart.timestamp())
+            cache.set('last_generated_event', ret['last_generated_event'], 86400)
+        except IndexError:
+            ret['last_generated_event'] = int(now.timestamp())
+
+    return ret
 
 def get_location_events(dts, dte, lat, lon, dist=0.05):
 
@@ -187,11 +213,15 @@ def extrapolate_position(dt, source='realtime'):
     posafter = Position.objects.filter(time__gt=dt).order_by('time')[0]
     trange = (posafter.time - posbefore.time).seconds
     tpoint = (dt - posbefore.time).seconds
-    ratio = tpoint / trange
-    latrange = posafter.lat - posbefore.lat
-    lonrange = posafter.lon - posbefore.lon
-    lat = posbefore.lat + (latrange * ratio)
-    lon = posbefore.lon + (lonrange * ratio)
+    if trange == 0:
+        lat = posbefore.lat
+        lon = posbefore.lon
+    else:
+        ratio = tpoint / trange
+        latrange = posafter.lat - posbefore.lat
+        lonrange = posafter.lon - posbefore.lon
+        lat = posbefore.lat + (latrange * ratio)
+        lon = posbefore.lon + (lonrange * ratio)
     pos = Position(time=dt, lat=lat, lon=lon, explicit=False, source=source)
     pos.save()
 

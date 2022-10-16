@@ -31,6 +31,12 @@ def fill_locations():
             pos.speed = calculate_speed(pos)
             pos.save()
 
+        if cache.has_key('last_calculated_position'):
+            last_max = cache.get('last_calculated_position')
+            di = dt.timestamp()
+            if di > last_max:
+                cache.set('last_calculated_position', di, 86400)
+
         dt = dt + datetime.timedelta(seconds=60)
 
 #    if addcount == 0:
