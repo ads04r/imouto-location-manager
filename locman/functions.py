@@ -194,6 +194,11 @@ def import_data(data, source='unknown'):
         if row['date'] < dt:
             dt = row['date']
     Position.objects.filter(time__gte=dt).filter(explicit=False).delete()
+    if cache.has_key('last_calculated_position'):
+        cached_dt = cache.get('last_calculated_position')
+        dt_i = int(dt.timestamp())
+        if dt_i < cached_dt:
+            cache.set('last_calculated_position', dt_i, 86400)
     Event.objects.filter(timeend__gte=dt).delete()
     for row in data:
         try:
