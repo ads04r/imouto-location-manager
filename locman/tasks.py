@@ -7,6 +7,8 @@ import datetime, pytz, os
 @background(schedule=0, queue='process')
 def fill_locations():
     """ A background task for going through the explicitly imported position data and filling in any gaps by calling extrapolate_position. If this task is complete to the best of our ability, call the function for generating events. """
+    if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 0:
+        return # If there's already an instance of this task running, don't start another.
     try:
         min_dt = Position.objects.filter(explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
     except:
@@ -43,12 +45,12 @@ def fill_locations():
 
         dt = dt + datetime.timedelta(seconds=60)
 
-#    if addcount == 0:
-#        make_new_events()
-
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):
     """ A background task for importing a data file, previously uploaded via a POST to the web interface. Once the import is complete, the function calculates the speed for all imported position values. """
+    if Task.objects.filter(queue='process').count() > 0:
+        import_uploaded_file(filename, source, format, schedule=60) # If there are process tasks queued, quit and reschedule for 60 seconds time
+        return
     if format == '':
 
         if filename.lower().endswith('.gpx'):
