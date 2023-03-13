@@ -1,5 +1,6 @@
 from background_task import background
 from .models import Position
+from background_task.models import Task
 from .functions import *
 import datetime, pytz, os
 
@@ -16,6 +17,9 @@ def fill_locations():
     med_dt = min_dt + datetime.timedelta(days=7)
     if med_dt < max_dt:
         max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
+    if Task.objects.filter(queue='imports').count() > 0:
+        fill_locations(schedule=60) # If there are imports running, quit and reschedule for 60 seconds time
+        return
 
     dt = min_dt + datetime.timedelta(minutes=5)
     addcount = 0
