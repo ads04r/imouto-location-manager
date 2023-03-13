@@ -7,7 +7,7 @@ import datetime, pytz, os
 @background(schedule=0, queue='process')
 def fill_locations():
     """ A background task for going through the explicitly imported position data and filling in any gaps by calling extrapolate_position. If this task is complete to the best of our ability, call the function for generating events. """
-    if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 0:
+    if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
         return # If there's already an instance of this task running, don't start another.
     try:
         min_dt = Position.objects.filter(explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
