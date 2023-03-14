@@ -19,8 +19,11 @@ def fill_locations():
     med_dt = min_dt + datetime.timedelta(days=7)
     if med_dt < max_dt:
         max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
-    if Task.objects.filter(queue='imports').count() > 0:
+    if Task.objects.filter(queue='imports', task_name__icontains='tasks.import_uploaded_file', locked_by=None).count() > 0:
         fill_locations(schedule=60) # If there are imports running, quit and reschedule for 60 seconds time
+        return
+    if Task.objects.filter(queue='imports', task_name__icontains='tasks.import_uploaded_file').count() > 1:
+        fill_locations(schedule=60) # If there are multiple imports queued, quit and reschedule for 60 seconds time
         return
 
     dt = min_dt + datetime.timedelta(minutes=5)
@@ -48,8 +51,8 @@ def fill_locations():
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):
     """ A background task for importing a data file, previously uploaded via a POST to the web interface. Once the import is complete, the function calculates the speed for all imported position values. """
-    if Task.objects.filter(queue='process').count() > 0:
-        import_uploaded_file(filename, source, format, schedule=60) # If there are process tasks queued, quit and reschedule for 60 seconds time
+    if Task.objects.filter(queue='process').exclude(locked_by=None).count() > 0:
+        import_uploaded_file(filename, source, format, schedule=60) # If there are process tasks running, quit and reschedule for 60 seconds time
         return
     if format == '':
 

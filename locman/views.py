@@ -179,6 +179,10 @@ def upload(request):
             item['id'] = task.task_hash
             item['time'] = int(task.run_at.timestamp())
             item['label'] = task.task_name
+            item['running'] = task.locked_by_pid_running()
+            if item['running'] is None:
+                item['running'] = False
+            item['has_error'] = task.has_error()
             item['parameters'] = json.loads(task.task_params)
             data['tasks'].append(item)
         response = HttpResponse(json.dumps(data), content_type='application/json')
@@ -221,6 +225,10 @@ def process(request):
             item['id'] = task.task_hash
             item['time'] = int(task.run_at.timestamp())
             item['label'] = task.task_name
+            item['running'] = task.locked_by_pid_running()
+            if item['running'] is None:
+                item['running'] = False
+            item['has_error'] = task.has_error()
             item['parameters'] = json.loads(task.task_params)
             data['tasks'].append(item)
         data['stats'] = get_process_stats()
