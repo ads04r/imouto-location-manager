@@ -41,24 +41,6 @@ def get_location_events(dts, dte, lat, lon, dist=0.05):
 
     ret = []
 
-    try:
-        local_loc = Location.objects.get(lat=lat, lon=lon)
-    except:
-        local_loc = Location(lat=lat, lon=lon, description='')
-        local_loc.save()
-    if local_loc.description == '':
-        description = get_location_description(lat, lon)
-        if description == '':
-            description = 'Unknown Location'
-        if len(description) > 255:
-            description = description[0:255]
-        local_loc.description = description
-        try:
-            local_loc.save()
-        except OperationalError:
-            local_loc.description = 'Unknown Location'
-            local_loc.save()
-
     starttime = dts
     lasttime = dts
     for position in Position.objects.filter(time__gte=dts - datetime.timedelta(hours=12), time__lte=dte + datetime.timedelta(hours=24), lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
@@ -70,28 +52,16 @@ def get_location_events(dts, dte, lat, lon, dist=0.05):
             continue
         if (position.time - lasttime).total_seconds() > 300:
             if ((starttime >= dts) & (starttime <= dte) & (starttime != lasttime)):
-                item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+                item = {'timestart': starttime, 'timeend': lasttime}
                 ret.append(item)
             starttime = position.time
         lasttime = position.time
     if starttime > dts:
         if ((starttime >= dts) & (starttime <= dte) & (starttime != lasttime)):
-            item = {'timestart': starttime, 'timeend': lasttime, 'description': local_loc.description}
+            item = {'timestart': starttime, 'timeend': lasttime}
             ret.append(item)
 
     return ret
-
-def get_location_description(lat, lon):
-    url = "https://nominatim.openstreetmap.org/search.php?q=" + str(lat) + "%2C" + str(lon) + "&polygon_geojson=1&format=jsonv2"
-    request = urllib.request.urlopen(url)
-    if(request.getcode() != 200):
-        return ""
-    data = json.loads(request.read())
-    if len(data) == 0:
-        return ""
-    if 'display_name' in data[0]:
-        return data[0]['display_name']
-    return ""
 
 def get_last_position(source=''):
     """ Returns a datetime referencing the last position in the user's data. Optionally, specify a data source ID to restrict the search to that source. """
