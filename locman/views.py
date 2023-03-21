@@ -164,9 +164,6 @@ class ElevationViewSet(viewsets.ViewSet):
 @csrf_exempt
 def upload(request):
 
-    if Task.objects.count() == 0:
-        fill_locations()
-
     if request.method == 'GET':
         sources = get_source_ids()
         data = {'tasks':[], 'sources':{}}
@@ -212,10 +209,7 @@ def upload(request):
     return response
 
 def process(request):
-    
-    if Task.objects.count() == 0:
-        fill_locations()
-    
+
     if request.method == 'GET':
         data = {'tasks':[], 'stats':{}}
         for task in Task.objects.all():

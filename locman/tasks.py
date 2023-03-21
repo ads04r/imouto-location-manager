@@ -82,3 +82,5 @@ def import_uploaded_file(filename, source, format=""):
         pos.speed = calculate_speed(pos)
         pos.save()
 
+    fill_locations()
+
