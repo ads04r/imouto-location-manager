@@ -5,7 +5,7 @@ from xml.dom import minidom
 from fitparse import FitFile
 import datetime, math, csv, dateutil.parser, pytz, urllib.request, json
 from tzlocal import get_localzone
-from .models import Position, Event, Location
+from .models import Position, Event
 
 def get_process_stats():
 

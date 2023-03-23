@@ -9,6 +9,11 @@ class Scan(models.Model):
     ssid = models.CharField(max_length=255, default='')
     mac = MACAddressField(null=True, blank=True)
     type = models.SlugField(max_length=32, default='wifi')
+    def __str__(self):
+        ret = str(self.ssid)
+        if ret == '':
+            ret = str(self.mac)
+        return ret
     class Meta:
         app_label = 'locman'
         verbose_name = 'scan'
@@ -46,26 +51,11 @@ class Position(models.Model):
             models.UniqueConstraint(fields=['time', 'source', 'explicit'], name='locman_time_source_expl_uniq')
         ]
 
-class Location(models.Model):
-    lat = models.FloatField()
-    lon = models.FloatField()
-    description = models.CharField(max_length=255, default='')
-    def __str__(self):
-        if self.description == '':
-            return 'Unknown location'
-        return self.description
-    class Meta:
-        app_label = 'locman'
-        verbose_name = 'location'
-        verbose_name_plural = 'locations'
-        indexes = [
-            models.Index(fields=['lat', 'lon']),
-        ]
-
 class Event(models.Model):
     timestart = models.DateTimeField()
     timeend = models.DateTimeField()
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, blank=True, null=True)
+    def __str__(self):
+        return self.timestart.strftime("%Y-%m-%d %H:%M:%S") + " | " + str(self.timeend - self.timestart)
     def __distance(self, lat1, lon1, lat2, lon2):
         """ Returns the distance, in km, between lat1,lon1 and lat2,lon2. """
         radius = 6371.0 # km
@@ -122,5 +112,4 @@ class Event(models.Model):
         verbose_name_plural = 'events'
         indexes = [
             models.Index(fields=['timestart', 'timeend']),
-            models.Index(fields=['location']),
         ]
