@@ -5,6 +5,19 @@ from .functions import *
 import datetime, pytz, os
 
 @background(schedule=0, queue='process')
+def generate_location_events():
+    """ A background task to assist the generation of location proximity events. The Location Manager doesn't know about the places defined in the Viewer, but it can tell you when and where the user stopped for more than a particular amount of time. The Viewer can check this in order to create loc_prox events. """
+    if Task.objects.filter(queue='process', task_name__icontains='tasks.generate_location_events').count() > 1:
+        return # If there's already an instance of this task running or queued, don't start another.
+    if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
+        generate_location_events(schedule=60) # If a fill_locations task is running or queued, defer for 60 seconds.
+        return
+    if Task.objects.filter(queue='imports', task_name__icontains='tasks.import_uploaded_file').count() > 0:
+        generate_location_events(schedule=60) # If there are imports running or queued, quit and reschedule for 60 seconds time.
+        return
+    generate_events()
+
+@background(schedule=0, queue='process')
 def fill_locations():
     """ A background task for going through the explicitly imported position data and filling in any gaps by calling extrapolate_position. If this task is complete to the best of our ability, call the function for generating events. """
     if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
@@ -47,6 +60,8 @@ def fill_locations():
                 cache.set('last_calculated_position', di, 86400)
 
         dt = dt + datetime.timedelta(seconds=60)
+
+    generate_location_events()
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):

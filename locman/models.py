@@ -54,6 +54,8 @@ class Position(models.Model):
 class Event(models.Model):
     timestart = models.DateTimeField()
     timeend = models.DateTimeField()
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
     def __str__(self):
         return self.timestart.strftime("%Y-%m-%d %H:%M:%S") + " | " + str(self.timeend - self.timestart)
     def __distance(self, lat1, lon1, lat2, lon2):

@@ -1,4 +1,4 @@
-from django.db.models import Max, Min
+from django.db.models import Max, Min, Avg
 from django.db.utils import OperationalError
 from django.core.cache import cache
 from xml.dom import minidom
@@ -29,6 +29,51 @@ def get_process_stats():
             cache.set('last_generated_event', ret['last_generated_event'], 86400)
         except IndexError:
             ret['last_generated_event'] = int(now.timestamp())
+
+    return ret
+
+def generate_events(max_speed=2, max_length=300):
+
+    ret = []
+    try:
+        dt = Event.objects.order_by('-timeend').first().timeend
+    except:
+        dt = None
+    if dt is None:
+        dt = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+        ev = Event(timestart=dt, timeend=dt)
+        ev.save()
+        ret.append(ev)
+        return ret
+    pp = Position.objects.filter(time__gte=dt, speed__gt=max_speed).order_by('time').all()
+    stops = []
+    stops_refined = []
+    for i in range(0, len(pp) - 4):
+        buffer_before = (pp[i + 1].time - pp[i].time).total_seconds()
+        event_length = (pp[i + 2].time - pp[i + 1].time).total_seconds()
+        buffer_after = (pp[i + 3].time - pp[i + 2].time).total_seconds()
+        if event_length >= max_length:
+            if ((buffer_before < 60) & (buffer_after < 60)):
+                #ev = Event(timestart=pp[i + 1].time, timeend=pp[i + 2].time)
+                #ev.save()
+                ev = [pp[i + 1].time, pp[i + 2].time]
+                stops.append(ev)
+    for n in stops:
+        i = len(stops_refined) - 1
+        if i < 0:
+            stops_refined.append(n)
+            continue
+        dur = (n[0] - stops_refined[i][1]).total_seconds()
+        if dur < max_length:
+            stops_refined[i][1] = n[1]
+        else:
+            stops_refined.append(n)
+    for n in stops_refined:
+        ll = Position.objects.filter(time__gte=n[0], time__lte=n[1]).aggregate(Avg('lat'), Avg('lon'))
+        e = Event(timestart=n[0], timeend=n[1], lat=ll['lat__avg'], lon=ll['lon__avg'])
+        e.save()
+        ret.append(e)
+        cache.set('last_generated_event', int(e.timestart.timestamp()), 86400)
 
     return ret
 
