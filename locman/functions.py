@@ -208,7 +208,8 @@ def import_data(data, source='unknown'):
     for row in data:
         if row['date'] < dt:
             dt = row['date']
-    Position.objects.filter(time__gte=dt).filter(explicit=False).delete()
+    Position.objects.filter(time__gte=dt, explicit=False).delete()
+    Event.objects.filter(timestart__gte=dt).delete()
     if cache.has_key('last_calculated_position'):
         cached_dt = cache.get('last_calculated_position')
         dt_i = int(dt.timestamp())
