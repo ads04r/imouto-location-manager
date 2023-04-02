@@ -106,7 +106,15 @@ class Event(models.Model):
             lastlon = point.lon
         if len(track) > 1:
             geo.append(track)
-        ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":{"type":"MultiLineString","coordinates":geo}}
+        events = Event.objects.filter(timestart__gte=self.timestart, timeend__lte=self.timeend)
+        polyline = {"type":"MultiLineString","coordinates":geo}
+        if events.count() == 0:
+            geometry = polyline
+        else:
+            geometry = {"type": "GeometryCollection", "geometries": [polyline]}
+            for event in events:
+                geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"arrive": event.timestart, "leave": event.timeend}})
+        ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":geometry}
         return ret
     class Meta:
         app_label = 'locman'
