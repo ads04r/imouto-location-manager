@@ -13,7 +13,7 @@ def get_process_stats():
     ret = {}
 
     if cache.has_key('last_calculated_position'):
-        ret['last_calculated_position'] = cache.get('last_calculated_position')
+        ret['last_calculated_position'] = int(cache.get('last_calculated_position'))
     else:
         try:
             ret['last_calculated_position'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
@@ -22,7 +22,7 @@ def get_process_stats():
             ret['last_calculated_position'] = int(now.timestamp())
 
     if cache.has_key('last_generated_event'):
-        ret['last_generated_event'] = cache.get('last_generated_event')
+        ret['last_generated_event'] = int(cache.get('last_generated_event'))
     else:
         try:
             ret['last_generated_event'] = int(Event.objects.order_by('-timestart')[0].timestart.timestamp())

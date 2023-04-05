@@ -1,0 +1,12 @@
+{% extends "rest_framework/base.html" %}
+{% load static %}
+
+{% block branding %}<span class='navbar-brand'><b>&#x59B9;</b> Imouto Location Manager</span>{% endblock %}
+{% block style %}
+        {% block bootstrap_theme %}
+          <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/bootstrap.min.css" %}"/>
+          <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/bootstrap-tweaks.css" %}"/>
+        {% endblock %}
+
+        <link rel="stylesheet" type="text/css" href="{% static "locman/style.css" %}"/>
+{% endblock %}

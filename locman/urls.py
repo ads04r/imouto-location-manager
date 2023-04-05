@@ -17,11 +17,11 @@ router.register(r'event', views.EventViewSet, basename='event')
 router.register(r'position', views.PositionViewSet, basename='position')
 router.register(r'route', views.RouteViewSet, basename='route')
 router.register(r'elevation', views.ElevationViewSet, basename='elevation')
+router.register(r'process', views.ProcessViewSet, basename='process')
 router.trailing_slash = ''
 
 urlpatterns = [
-    path('import', views.upload),
-    path('process', views.process),
+    path('import', views.upload, name='import-list'),
     path('event/<ds>/<lat>/<lon>', views.locationevent, name='event-list'),
     path('', include(router.urls)),
 ]

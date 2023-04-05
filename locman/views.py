@@ -4,10 +4,10 @@ from django.conf import settings
 from django.db import OperationalError
 from rest_framework.decorators import api_view, renderer_classes
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.exceptions import MethodNotAllowed
+from rest_framework.parsers import JSONParser
 from rest_framework import status, viewsets
 
 from .models import *
@@ -21,15 +21,15 @@ import datetime, pytz, json, os, sys
 class EventViewSet(viewsets.ViewSet):
     """
     The Event namespace is for querying location events.
-    
+
         event - Get a list of the last known day's worth of events
-        event/[id] - Get detailed information about a particular event
         event/[timestamp] - Get the events for a specific day (format is YYYY-MM-DD)
         event/[timestamp]/[lat]/[lon] - Get the events at a location for a specific day
     """
     def list(self, request):
         lastevent = Event.objects.all().order_by('-timestart')[0]
-        queryset = Event.objects.filter(timeend__gte=lastevent.timestart)
+        dt = lastevent.timestart.replace(hour=0, minute=0, second=0)
+        queryset = Event.objects.filter(timeend__gte=dt)
         serializer = EventSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -62,9 +62,11 @@ class EventViewSet(viewsets.ViewSet):
 class PositionViewSet(viewsets.ViewSet):
     """
     The Position namespace is for querying raw location data.
-    
+
         position - Get a list of the last ten explicit positions logged
-        position/[timestamp] - Get the location for a specific timestamp (format is YYYYMMDDHHMMSS, always UTC)
+        position/[timestamp] - Get the location for a specific timestamp
+
+    Format of timestamp should be YYYYMMDDHHMMSS, always UTC
     """
     def list(self, request):
         queryset = Position.objects.order_by('-time')[0:10]
@@ -80,8 +82,6 @@ class PositionViewSet(viewsets.ViewSet):
         dsmin = int(ds[10:12])
         dssec = int(ds[12:])
         dt = datetime.datetime(dsyear, dsmonth, dsday, dshour, dsmin, dssec, tzinfo=pytz.UTC)
-        # queryset = Position.objects.all()
-        # pos = get_object_or_404(queryset, time=dt)
         try:
             pos = Position.objects.get(time=dt)
         except:
@@ -94,7 +94,11 @@ class PositionViewSet(viewsets.ViewSet):
 
 class RouteViewSet(viewsets.ViewSet):
     """
-    The Route namespace is for querying positions in batch, as a route
+    The Route namespace is for querying positions in batch, as a route.
+
+        route/[time_from][time_to] - Generate a GeoJSON object describing the location data within a particular timespan.
+
+    Format of time_from and time_to should be YYYYMMDDHHMMSS, always UTC
     """
     def list(self, request):
         queryset = []
@@ -123,7 +127,11 @@ class RouteViewSet(viewsets.ViewSet):
 
 class ElevationViewSet(viewsets.ViewSet):
     """
-    The Elevation namespace is for querying height positions in batch, for displaying as a graph
+    The Elevation namespace is for querying height positions in batch, for displaying as a graph. The return value is a list of three-element lists containing timestamp, distance along route and elevation.
+
+        elevation/[time_from][time_to] - Generate a list of distance and elevation data within a particular timespan.
+
+    Format of time_from and time_to should be YYYYMMDDHHMMSS, always UTC
     """
     def list(self, request):
         queryset = []
@@ -161,9 +169,43 @@ class ElevationViewSet(viewsets.ViewSet):
             lon = pos.lon
         return Response(data)
 
+class ProcessViewSet(viewsets.ViewSet):
+    """
+    The process namespace queries the running of the Location Manager.
+
+        process - Return an object containing relevant internal information.
+
+    The object returned contains 'tasks', a list of background tasks in the processing queue, and 'stats', an object containing information about previously automatically generated data.
+    """
+    def list(self, request):
+        data = {'tasks':[], 'stats':{}}
+        for task in Task.objects.all():
+            if task.queue != 'process':
+                continue
+            item = {}
+            item['id'] = task.task_hash
+            item['time'] = int(task.run_at.timestamp())
+            item['label'] = task.task_name
+            item['running'] = task.locked_by_pid_running()
+            if item['running'] is None:
+                item['running'] = False
+            item['has_error'] = task.has_error()
+            item['parameters'] = json.loads(task.task_params)
+            data['tasks'].append(item)
+        data['stats'] = get_process_stats()
+        return Response(data)
+
 @csrf_exempt
 def upload(request):
+    """
+    The import namespace queries the import status of the Location Manager.
 
+        import - Return an object containing relevant internal information.
+
+    The object returned contains 'tasks', a list of background tasks in the import queue, and
+    'sources', an object containing all the manually specified sources of location information
+    along with the date of the latest data from each source.
+    """
     if request.method == 'GET':
         sources = get_source_ids()
         data = {'tasks':[], 'sources':{}}
@@ -195,48 +237,24 @@ def upload(request):
     file_format = ''
     if 'file_format' in request.POST:
         file_format = request.POST['file_format']
-    
+
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     writer = open(temp_file, 'wb')
     for line in uploaded_file:
         writer.write(line)
     writer.close()
-    
+
     data = {'file':uploaded_file.name, 'size':uploaded_file.size, 'type':uploaded_file.content_type, 'source':file_source}
     import_uploaded_file(temp_file, file_source, file_format)
     response = HttpResponse(json.dumps(data), content_type='application/json')
     return response
 
-def process(request):
-
-    if request.method == 'GET':
-        data = {'tasks':[], 'stats':{}}
-        for task in Task.objects.all():
-            if task.queue != 'process':
-                continue
-            item = {}
-            item['id'] = task.task_hash
-            item['time'] = int(task.run_at.timestamp())
-            item['label'] = task.task_name
-            item['running'] = task.locked_by_pid_running()
-            if item['running'] is None:
-                item['running'] = False
-            item['has_error'] = task.has_error()
-            item['parameters'] = json.loads(task.task_params)
-            data['tasks'].append(item)
-        data['stats'] = get_process_stats()
-        response = HttpResponse(json.dumps(data), content_type='application/json')
-        return response
-
-    if request.method != 'POST':
-        raise MethodNotAllowed(str(request.method))
-        
 @api_view(['GET'])
 def locationevent(request, ds, lat, lon):
     """
     The Event namespace is for querying location events.
-    
+
         event - Get a list of the last known day's worth of events
         event/[id] - Get detailed information about a particular event
         event/[timestamp] - Get the events for a specific day (format is YYYY-MM-DD)
