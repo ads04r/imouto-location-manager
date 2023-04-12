@@ -113,7 +113,7 @@ class Event(models.Model):
         else:
             geometry = {"type": "GeometryCollection", "geometries": [polyline]}
             for event in events:
-                geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"arrive": event.timestart, "leave": event.timeend}})
+                geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"type": "stop", "arrive": event.timestart, "leave": event.timeend}})
         ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":geometry}
         return ret
     class Meta:
