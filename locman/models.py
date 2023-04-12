@@ -2,6 +2,27 @@ from django.db import models
 from macaddress.fields import MACAddressField
 import datetime, pytz, math
 
+def friendly_time(seconds):
+	s = int(seconds)
+	if s < 60:
+		return str(s) + " seconds"
+	m = int(seconds / 60)
+	s = s - (m * 60)
+	if m < 60:
+		if s == 0:
+			return str(m) + " minutes"
+		else:
+			return str(m) + " minutes, " + str(s) + " seconds"
+	h = int(m / 60)
+	m = m - (h * 60)
+	if m == 0:
+		return str(h) + " hours"
+	else:
+		if s == 0:
+			return str(h) + " hours, " + str(m) + " minutes"
+		else:
+			return str(h) + " hours, " + str(m) + " minutes, " + str(s) + " seconds"
+
 class Scan(models.Model):
     lat = models.FloatField(null=True, blank=True)
     lon = models.FloatField(null=True, blank=True)
@@ -113,7 +134,7 @@ class Event(models.Model):
         else:
             geometry = {"type": "GeometryCollection", "geometries": [polyline]}
             for event in events:
-                geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"type": "stop", "arrive": event.timestart, "leave": event.timeend}})
+                geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"type": "stop", "arrive": event.timestart, "leave": event.timeend, "label": "Stopped for " + friendly_time((event.timeend - event.timestart).total_seconds())}})
         ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":geometry}
         return ret
     class Meta:
