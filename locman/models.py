@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from macaddress.fields import MACAddressField
 import datetime, pytz, math
 
@@ -102,7 +103,13 @@ class Event(models.Model):
         track = []
         geo = []
         dist = 0.0
+        poi = []
+
+        max_speed = [0, 0.0, 0.0, None]
+
         for point in Position.objects.filter(time__gte=self.timestart).filter(time__lte=self.timeend):
+            if point.speed > max_speed[0]:
+                max_speed = [point.speed, point.lat, point.lon, point.time.astimezone(pytz.timezone(settings.TIME_ZONE))]
             if ((lastlat != 0.0) & (lastlon != 0.0)):
                 dist = dist + self.__distance(lastlat, lastlon, point.lat, point.lon)
             if (point.time - lasttime).total_seconds() > 90:
@@ -127,12 +134,18 @@ class Event(models.Model):
             lastlon = point.lon
         if len(track) > 1:
             geo.append(track)
+
         events = Event.objects.filter(timestart__gte=self.timestart, timeend__lte=self.timeend)
+        if max_speed[0] > 5:
+            poi.append({"type": "Point", "coordinates": [max_speed[2], max_speed[1]], "properties": {"type": "poi", "time": max_speed[3], "label": "Maximum speed " + str(max_speed[0]) + "mph at " + str(max_speed[3].strftime('%H:%M:%S'))}})
+
         polyline = {"type":"MultiLineString","coordinates":geo}
-        if events.count() == 0:
+        if events.count() + len(poi) == 0:
             geometry = polyline
         else:
             geometry = {"type": "GeometryCollection", "geometries": [polyline]}
+            for p in poi:
+                geometry['geometries'].append(p)
             for event in events:
                 geometry['geometries'].append({"type": "Point", "coordinates": [event.lon, event.lat], "properties": {"type": "stop", "arrive": event.timestart, "leave": event.timeend, "label": "Stopped for " + friendly_time((event.timeend - event.timestart).total_seconds())}})
         ret = {"type":"Feature", "bbox":[minlon, maxlat, maxlon, minlat], "properties":{"distance": dist}, "geometry":geometry}
