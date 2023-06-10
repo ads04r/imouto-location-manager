@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.conf import settings
 from django.db import OperationalError
+from django.db.models import Min, Max
 from rest_framework.decorators import api_view, renderer_classes
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
@@ -123,6 +124,39 @@ class RouteViewSet(viewsets.ViewSet):
         dte = datetime.datetime(dseyear, dsemonth, dseday, dsehour, dsemin, dsesec, tzinfo=pytz.UTC)
         event = Event(timestart=dts, timeend=dte)
         data = {"timestart": event.timestart, "timeend": event.timeend, "geo": event.geojson()}
+        return Response(data)
+
+class BoundingBoxViewSet(viewsets.ViewSet):
+    """
+    The Bounding Box namespace is for querying the maximum and minimum latitude and longitude during a particular timespan. The return value is a four-element list of co-ordinates, in the GeoJSON bounding box array order.
+
+        bbox/[time_from][time_to] - Return extreme points within a particular timespan.
+
+    Format of time_from and time_to should be YYYYMMDDHHMMSS, always UTC
+    """
+    def list(self, request):
+        queryset = []
+        serializer = RouteSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        ds = str(pk)
+        dssyear = int(ds[0:4])
+        dssmonth = int(ds[4:6])
+        dssday = int(ds[6:8])
+        dsshour = int(ds[8:10])
+        dssmin = int(ds[10:12])
+        dsssec = int(ds[12:14])
+        dseyear = int(ds[14:18])
+        dsemonth = int(ds[18:20])
+        dseday = int(ds[20:22])
+        dsehour = int(ds[22:24])
+        dsemin = int(ds[24:26])
+        dsesec = int(ds[26:])
+        dts = datetime.datetime(dssyear, dssmonth, dssday, dsshour, dssmin, dsssec, tzinfo=pytz.UTC)
+        dte = datetime.datetime(dseyear, dsemonth, dseday, dsehour, dsemin, dsesec, tzinfo=pytz.UTC)
+        ret = Position.objects.filter(time__gte=dts, time__lte=dte).aggregate(max_lat=Max('lat'), min_lat=Min('lat'), max_lon=Max('lon'), min_lon=Min('lon'))
+        data = [ret['min_lon'], ret['min_lat'], ret['max_lon'], ret['max_lat']]
         return Response(data)
 
 class ElevationViewSet(viewsets.ViewSet):

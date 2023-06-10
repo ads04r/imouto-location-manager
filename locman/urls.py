@@ -18,6 +18,7 @@ router.register(r'position', views.PositionViewSet, basename='position')
 router.register(r'route', views.RouteViewSet, basename='route')
 router.register(r'elevation', views.ElevationViewSet, basename='elevation')
 router.register(r'process', views.ProcessViewSet, basename='process')
+router.register(r'bbox', views.BoundingBoxViewSet, basename='bbox')
 router.trailing_slash = ''
 
 urlpatterns = [
