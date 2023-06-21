@@ -29,8 +29,10 @@ def fill_locations():
     max_dt = Position.objects.aggregate(Max('time'))['time__max']
     if max_dt is None: # The database is probably empty, so just quit quietly
         return
-    med_dt = min_dt + datetime.timedelta(days=7)
+    med_dt = min_dt + datetime.timedelta(days=28)
+    is_med = False
     if med_dt < max_dt:
+        is_med = True
         max_dt = med_dt # ensure we don't go completely crazy with the extrapolating
     if Task.objects.filter(queue='imports', task_name__icontains='tasks.import_uploaded_file', locked_by=None).count() > 0:
         fill_locations(schedule=60) # If there are imports running, quit and reschedule for 60 seconds time
@@ -61,7 +63,10 @@ def fill_locations():
 
         dt = dt + datetime.timedelta(seconds=60)
 
-    generate_location_events()
+    if is_med:
+        fill_locations(schedule=60) # If there are still explicit locations stored, quit and reschedule for 60 seconds time
+    else:
+        generate_location_events() # Otherwise generate some events
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):
