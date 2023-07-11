@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.conf import settings
 from django.db import OperationalError
 from django.db.models import Min, Max
@@ -18,6 +18,16 @@ from .tasks import *
 from background_task.models import Task
 
 import datetime, pytz, json, os, sys
+
+def root_redirect(request):
+    """
+    This view is used when the user calls '/', and simply redirects to either a login
+    page or the main ViewSet, depending on whether or not the user is logged in.
+    """
+    if request.user.is_authenticated:
+        return HttpResponseRedirect('/location-manager')
+    else:
+        return HttpResponseRedirect('/admin/login/?next=/')
 
 class EventViewSet(viewsets.ViewSet):
     """
