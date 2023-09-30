@@ -25,6 +25,8 @@ def fill_locations():
     try:
         min_dt = Position.objects.filter(explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
     except:
+        min_dt = None
+    if min_dt is None:
         min_dt = Position.objects.aggregate(Min('time'))['time__min']
     max_dt = Position.objects.aggregate(Max('time'))['time__max']
     if max_dt is None: # The database is probably empty, so just quit quietly
