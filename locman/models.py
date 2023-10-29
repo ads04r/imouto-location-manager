@@ -107,11 +107,15 @@ class Event(models.Model):
 
         max_speed = [0, 0.0, 0.0, None]
         max_height = [0, 0.0, 0.0, None]
+        min_height = 9999
 
         for point in Position.objects.filter(time__gte=self.timestart).filter(time__lte=self.timeend):
-            if point.speed > max_speed[0]:
-                max_speed = [point.speed, point.lat, point.lon, point.time.astimezone(pytz.timezone(settings.TIME_ZONE))]
+            if not(point.speed is None):
+                if point.speed > max_speed[0]:
+                    max_speed = [point.speed, point.lat, point.lon, point.time.astimezone(pytz.timezone(settings.TIME_ZONE))]
             if not(point.elevation is None):
+                if point.elevation < min_height:
+                    min_height = point.elevation
                 if point.elevation > max_height[0]:
                     max_height = [point.elevation, point.lat, point.lon, point.time.astimezone(pytz.timezone(settings.TIME_ZONE))]
             if ((lastlat != 0.0) & (lastlon != 0.0)):
@@ -143,7 +147,9 @@ class Event(models.Model):
         if max_speed[0] > 10:
             poi.append({"type": "Point", "coordinates": [max_speed[2], max_speed[1]], "properties": {"type": "poi", "time": max_speed[3], "label": "Maximum speed " + str(max_speed[0]) + "mph at " + str(max_speed[3].strftime('%H:%M:%S'))}})
         if not(max_height[3] is None):
-            poi.append({"type": "Point", "coordinates": [max_height[2], max_height[1]], "properties": {"type": "poi", "time": max_height[3], "label": "Maximum elevation " + str(int(max_height[0])) + "m at " + str(max_height[3].strftime('%H:%M:%S'))}})
+            height_diff = max_height[0] - min_height
+            if ((height_diff > 50) or (max_height[0] > 200)):
+                poi.append({"type": "Point", "coordinates": [max_height[2], max_height[1]], "properties": {"type": "poi", "time": max_height[3], "label": "Maximum elevation " + str(int(max_height[0])) + "m at " + str(max_height[3].strftime('%H:%M:%S'))}})
 
         polyline = {"type":"MultiLineString","coordinates":geo}
         if events.count() + len(poi) == 0:
