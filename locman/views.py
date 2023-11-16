@@ -258,6 +258,7 @@ def upload(request):
             item['has_error'] = task.has_error()
             item['parameters'] = json.loads(task.task_params)
             data['tasks'].append(item)
+        generate_location_events()
         response = HttpResponse(json.dumps(data), content_type='application/json')
         return response
 
