@@ -8,7 +8,11 @@ from tzlocal import get_localzone
 from .models import Position, Event
 
 def get_process_stats():
-
+    """
+    Deals with the caching of statistics called by the Imouto Viewer. Some versions of MariaDB
+    take a long time to get the highest value in a date column on a big table, so we do some
+    crafty caching.
+    """
     now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
     ret = {}
 
@@ -32,30 +36,40 @@ def get_process_stats():
 
     return ret
 
-def generate_events(max_speed=2, max_length=300):
+def generate_events(max_speed=2, min_length=300, for_date=None):
+    """
+    Generates 'stop' events on the specified date. If no date is specified, generate events in
+    the time between the last generated event and the last location data.
 
+    :param max_speed: The speed in miles per hour that the user needs to be moving before we consider it not part of a 'stop'.
+    :param min_length: The minimum length of a stop, in seconds. Stops shorter than this value will be ignored.
+    :return: A list of new Event objects that have been created by this function call.
+    :rtype: list
+    """
     ret = []
     try:
         dt = Event.objects.order_by('-timeend').first().timeend
     except:
         dt = None
+    dte = pytz.utc.localize(datetime.datetime.utcnow())
+    if not(for_date is None):
+        dt = pytz.utc.localize(datetime.datetime(for_date.year, for_date.month, for_date.day, 0, 0, 0))
+        dte = dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
     if dt is None:
         dt = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
         ev = Event(timestart=dt, timeend=dt)
         ev.save()
         ret.append(ev)
         return ret
-    pp = Position.objects.filter(time__gte=dt, speed__gt=max_speed).order_by('time').all()
+    pp = Position.objects.filter(time__gte=dt, time__lte=dte, speed__gt=max_speed).order_by('time').all()
     stops = []
     stops_refined = []
     for i in range(0, len(pp) - 4):
         buffer_before = (pp[i + 1].time - pp[i].time).total_seconds()
         event_length = (pp[i + 2].time - pp[i + 1].time).total_seconds()
         buffer_after = (pp[i + 3].time - pp[i + 2].time).total_seconds()
-        if event_length >= max_length:
+        if event_length >= min_length:
             if ((buffer_before < 60) & (buffer_after < 60)):
-                #ev = Event(timestart=pp[i + 1].time, timeend=pp[i + 2].time)
-                #ev.save()
                 ev = [pp[i + 1].time, pp[i + 2].time]
                 stops.append(ev)
     for n in stops:
@@ -64,7 +78,7 @@ def generate_events(max_speed=2, max_length=300):
             stops_refined.append(n)
             continue
         dur = (n[0] - stops_refined[i][1]).total_seconds()
-        if dur < max_length:
+        if dur < min_length:
             stops_refined[i][1] = n[1]
         else:
             stops_refined.append(n)
@@ -73,12 +87,24 @@ def generate_events(max_speed=2, max_length=300):
         e = Event(timestart=n[0], timeend=n[1], lat=ll['lat__avg'], lon=ll['lon__avg'])
         e.save()
         ret.append(e)
-        cache.set('last_generated_event', int(e.timestart.timestamp()), 86400)
+        if for_date is None:
+            cache.set('last_generated_event', int(e.timestart.timestamp()), 86400)
 
     return ret
 
 def get_location_events(dts, dte, lat, lon, dist=0.05):
+    """
+    Returns a list of dictionaries that represent potential stop events, based on the input given by the user.
+    Required input are latitude and longitude co-ordinates, a start time and an end time. Optionally, the user
+    can specify a distance, which is the distance away from the point specified by lat and lon that the user
+    can move before the event will be considered to have ended.
 
+    :param dts: A datetime representing the start of the timespan to search for events.
+    :param dte: A datetime representing the end of the timespan to search for events.
+    :param lat: A float representing the latitude of a point near which to search for the user's presence.
+    :param lon: A float representing the longitude of a point near which to search for the user's presence.
+    :param dist: Optional, the distance (in miles per hour) that the user can move away from the specified co-ordinates before the event is considered to be over.
+    """
     minlat = float(lat) - dist
     maxlat = float(lat) + dist
     minlon = float(lon) - dist
@@ -209,24 +235,28 @@ def import_data(data, source='unknown'):
         if row['date'] < dt:
             dt = row['date']
     Position.objects.filter(time__gte=dt, explicit=False).delete()
-    Event.objects.filter(timestart__gte=dt).delete()
+    Event.objects.filter(timeend__gte=dt).delete()
+    for row in data:
+        try:
+            pos = Position.objects.get(time=row['date'])
+            pos.lat = row['lat']
+            pos.lon = row['lon']
+            pos.explicit = True
+            pos.source = source
+        except:
+            pos = Position(time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
+        if ((pos.elevation is None) & ('alt' in row)):
+            pos.elevation = float(row['alt'])
+        if 'alt' in row:
+            pos.elevation = float(row['alt'])
+        pos.save()
+    Position.objects.filter(time__gte=dt, explicit=False).delete()
+    Event.objects.filter(timeend__gte=dt).delete()
     if cache.has_key('last_calculated_position'):
         cached_dt = cache.get('last_calculated_position')
         dt_i = int(dt.timestamp())
         if dt_i < cached_dt:
             cache.set('last_calculated_position', dt_i, 86400)
-    Event.objects.filter(timeend__gte=dt).delete()
-    for row in data:
-        try:
-            pos = Position.objects.get(time=row['date'])
-            if ((pos.elevation is None) & ('alt' in row)):
-                pos.elevation = float(row['alt'])
-                pos.save()
-        except:
-            pos = Position(time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
-            if 'alt' in row:
-                pos.elevation = float(row['alt'])
-            pos.save()
 
 def extrapolate_position(dt, source='realtime'):
     """ Returns an approximate position for a specified time for which no explicit location data exists. """

@@ -6,7 +6,11 @@ import datetime, pytz, os
 
 @background(schedule=0, queue='process')
 def generate_location_events():
-    """ A background task to assist the generation of location proximity events. The Location Manager doesn't know about the places defined in the Viewer, but it can tell you when and where the user stopped for more than a particular amount of time. The Viewer can check this in order to create loc_prox events. """
+    """
+    A background task to assist the generation of location proximity events. The Location Manager doesn't
+    know about the places defined in the Viewer, but it can tell you when and where the user stopped for
+    more than a particular amount of time. The Viewer can check this in order to create loc_prox events.
+    """
     if Task.objects.filter(queue='process', task_name__icontains='tasks.generate_location_events').count() > 1:
         return # If there's already an instance of this task running or queued, don't start another.
     if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
@@ -19,9 +23,16 @@ def generate_location_events():
 
 @background(schedule=0, queue='process')
 def fill_locations():
-    """ A background task for going through the explicitly imported position data and filling in any gaps by calling extrapolate_position. If this task is complete to the best of our ability, call the function for generating events. """
+    """
+    A background task for going through the explicitly imported position data and filling in any gaps by
+    calling extrapolate_position. If this task is complete to the best of our ability, call the function
+    for generating events.
+    """
     if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
         return # If there's already an instance of this task running, don't start another.
+    if Task.objects.filter(queue='imports', task_name__icontains='tasks.import_uploaded_file').count() > 1:
+        fill_locations(schedule=60)
+        return # Hold off if we're still importing files
     try:
         min_dt = Position.objects.filter(explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
     except:
@@ -72,10 +83,14 @@ def fill_locations():
 
 @background(schedule=0, queue='imports')
 def import_uploaded_file(filename, source, format=""):
-    """ A background task for importing a data file, previously uploaded via a POST to the web interface. Once the import is complete, the function calculates the speed for all imported position values. """
-    if Task.objects.filter(queue='process').exclude(locked_by=None).count() > 0:
-        import_uploaded_file(filename, source, format, schedule=60) # If there are process tasks running, quit and reschedule for 60 seconds time
-        return
+    """
+    A background task for importing a data file, previously uploaded via a POST to
+    the web interface. Once the import is complete, the function calculates the speed
+    for all imported position values.
+
+    :param filename: The path of the uploadedfile to import.
+    :param source: A string representing the source of the file for future provenance checking, eg 'phone_gps'.
+    """
     if format == '':
 
         if filename.lower().endswith('.gpx'):
@@ -104,5 +119,5 @@ def import_uploaded_file(filename, source, format=""):
         pos.speed = calculate_speed(pos)
         pos.save()
 
-    fill_locations()
+    fill_locations() # Once we're done, call the fill locations task.
 
