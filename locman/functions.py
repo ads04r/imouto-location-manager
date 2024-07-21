@@ -13,7 +13,7 @@ def get_process_stats():
     take a long time to get the highest value in a date column on a big table, so we do some
     crafty caching.
     """
-    now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+    now = pytz.utc.localize(datetime.datetime.utcnow())
     ret = {}
 
     if cache.has_key('last_calculated_position'):
@@ -56,7 +56,7 @@ def generate_events(max_speed=2, min_length=300, for_date=None):
         dt = pytz.utc.localize(datetime.datetime(for_date.year, for_date.month, for_date.day, 0, 0, 0))
         dte = dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
     if dt is None:
-        dt = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+        dt = pytz.utc.localize(datetime.datetime.utcnow())
         ev = Event(timestart=dt, timeend=dt)
         ev.save()
         ret.append(ev)
@@ -163,8 +163,8 @@ def parse_file_fit(filename, source='unknown'):
         fit = FitFile(filename)
     except:
         return []
-    tz = get_localzone()
-    tz = pytz.UTC
+    tz = get_localzone() # TODO investigate this
+    tz = pytz.utc
     for record in fit.get_messages('record'):
         item = {}
         for recitem in record:
@@ -189,8 +189,7 @@ def parse_file_fit(filename, source='unknown'):
         if item['position_long']['value'] is None:
             continue
         if item['timestamp']['value'].tzinfo is None or item['timestamp']['value'].utcoffset(item['timestamp']['value']) is None:
-            item['timestamp']['value'] = tz.localize(item['timestamp']['value'])
-            item['timestamp']['value'] = item['timestamp']['value'].replace(tzinfo=pytz.utc) - item['timestamp']['value'].utcoffset() # I like everything in UTC. Bite me.
+            item['timestamp']['value'] = tz.localize(item['timestamp']['value']).astimezone(pytz.utc)
         newitem = {}
         newitem['lat'] = item['position_lat']['value']
         newitem['lon'] = item['position_long']['value']
@@ -222,7 +221,7 @@ def parse_file_csv(filename, source='unknown', delimiter='\t'):
         csvreader = csv.reader(fp, delimiter=delimiter, quotechar='"')
         for row in csvreader:
             item = {}
-            item['date'] = datetime.datetime.strptime(row[0].strip(" "), '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
+            item['date'] = pytz.utc.localize(datetime.datetime.strptime(row[0].strip(" "), '%Y-%m-%d %H:%M:%S'))
             item['lat'] = float(row[1])
             item['lon'] = float(row[2])
             data.append(item)
@@ -230,10 +229,11 @@ def parse_file_csv(filename, source='unknown', delimiter='\t'):
 
 def import_data(data, source='unknown'):
     """ Takes a parsed dataset from parse_file_* and imports the data into the database. The source is just a string to uniquely identify a particular data source, such as 'phone' or 'fitness_tracker'. """
-    dt = datetime.datetime.now(pytz.utc)
+    dt = pytz.utc.localize(datetime.datetime.utcnow())
     for row in data:
         if row['date'] < dt:
             dt = row['date']
+    dt = dt - datetime.timedelta(hours=12)
     Position.objects.filter(time__gte=dt, explicit=False).delete()
     Event.objects.filter(timeend__gte=dt).delete()
     for row in data:

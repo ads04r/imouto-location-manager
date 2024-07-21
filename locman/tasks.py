@@ -91,6 +91,9 @@ def import_uploaded_file(filename, source, format=""):
     :param filename: The path of the uploadedfile to import.
     :param source: A string representing the source of the file for future provenance checking, eg 'phone_gps'.
     """
+    if Task.objects.filter(queue='process', task_name__icontains='tasks.fill_locations').count() > 1:
+        import_uploaded_file(filename, source, format, schedule=60) # If a fill_locations task is running or queued, defer for 60 seconds.
+        return
     if format == '':
 
         if filename.lower().endswith('.gpx'):
