@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from macaddress.fields import MACAddressField
-import datetime, pytz, math
+import datetime, pytz, math, json
 
 def friendly_time(seconds):
 	s = int(seconds)
@@ -78,6 +78,14 @@ class Event(models.Model):
     timeend = models.DateTimeField()
     lat = models.FloatField(null=True, blank=True)
     lon = models.FloatField(null=True, blank=True)
+    amenities_data = models.TextField(default="[]")
+    @property
+    def amenities(self):
+        if self.pk:
+            return json.loads(self.amenities_data)
+        ret = nearest_amenities(e.lat, e.lon)
+        self.amenities_data = json.dumps(ret)
+        return ret
     def __str__(self):
         return self.timestart.strftime("%Y-%m-%d %H:%M:%S") + " | " + str(self.timeend - self.timestart)
     def __distance(self, lat1, lon1, lat2, lon2):

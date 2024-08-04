@@ -85,6 +85,7 @@ def generate_events(max_speed=2, min_length=300, for_date=None):
     for n in stops_refined:
         ll = Position.objects.filter(time__gte=n[0], time__lte=n[1]).aggregate(Avg('lat'), Avg('lon'))
         e = Event(timestart=n[0], timeend=n[1], lat=ll['lat__avg'], lon=ll['lon__avg'])
+        e.amenities_data = json.dumps(nearest_amenities(e.lat, e.lon))
         e.save()
         ret.append(e)
         if for_date is None:
@@ -334,7 +335,7 @@ def get_source_ids():
         ret.append(data['source'])
     return ret
 
-def nearest_amenities(lat, lon, dist=50):
+def nearest_amenities(lat, lon, dist=100):
     """
     Query OpenStreetMap to get the nearest amenities to the point specified.
 
@@ -345,15 +346,35 @@ def nearest_amenities(lat, lon, dist=50):
     :rtype: list
 
     """
-    query = "nwr[amenity](around:" + str(dist) + "," + str(lat) + "," + str(lon) + "); out;"
-    api = overpy.Overpass()
-    result = api.query(query)
     ret = []
+    api = overpy.Overpass()
+    query = "[out:json]; nwr[amenity](around:" + str(dist) + "," + str(lat) + "," + str(lon) + "); out center;"
+    result = api.query(query)
     for node in result.nodes:
         item = dict(node.tags)
         if 'name' in item:
             item['lat'] = float(node.lat)
             item['lon'] = float(node.lon)
+            ret.append(item)
+    for way in result.ways:
+        item = dict(way.tags)
+        if 'name' in item:
+            item['lat'] = float(way.center_lat)
+            item['lon'] = float(way.center_lon)
+            ret.append(item)
+    query = "[out:json]; nwr[leisure](around:" + str(dist) + "," + str(lat) + "," + str(lon) + "); out center;"
+    result = api.query(query)
+    for node in result.nodes:
+        item = dict(node.tags)
+        if 'name' in item:
+            item['lat'] = float(node.lat)
+            item['lon'] = float(node.lon)
+            ret.append(item)
+    for way in result.ways:
+        item = dict(way.tags)
+        if 'name' in item:
+            item['lat'] = float(way.center_lat)
+            item['lon'] = float(way.center_lon)
             ret.append(item)
     return ret
 

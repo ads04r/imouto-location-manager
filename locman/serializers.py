@@ -6,7 +6,7 @@ class EventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Event
-        fields = ['timestart', 'timeend', 'lat', 'lon']
+        fields = ['timestart', 'timeend', 'lat', 'lon', 'amenities']
 
 class PositionSerializer(serializers.ModelSerializer):
 
