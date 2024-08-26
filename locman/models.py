@@ -51,6 +51,7 @@ class Scan(models.Model):
     ssid = models.CharField(max_length=255, default='')
     mac = MACAddressField(null=True, blank=True)
     type = models.SlugField(max_length=32, default='wifi')
+    user = models.ForeignKey(UserProfile, null=False, on_delete=models.CASCADE, related_name='scans')
     def __str__(self):
         ret = str(self.ssid)
         if ret == '':
@@ -79,6 +80,7 @@ class Position(models.Model):
     speed = models.IntegerField(blank=True, null=True)
     explicit = models.BooleanField(default=True)
     source = models.SlugField(max_length=32)
+    user = models.ForeignKey(UserProfile, null=False, on_delete=models.CASCADE, related_name='positions')
     class Meta:
         app_label = 'locman'
         verbose_name = 'position'
@@ -99,6 +101,7 @@ class Event(models.Model):
     lat = models.FloatField(null=True, blank=True)
     lon = models.FloatField(null=True, blank=True)
     amenities_data = models.TextField(default="[]")
+    user = models.ForeignKey(UserProfile, null=False, on_delete=models.CASCADE, related_name='events')
     @property
     def amenities(self):
         if self.pk:

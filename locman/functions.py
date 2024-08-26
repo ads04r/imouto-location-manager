@@ -7,7 +7,7 @@ import datetime, math, csv, dateutil.parser, pytz, urllib.request, json, overpy
 from tzlocal import get_localzone
 from .models import Position, Event
 
-def get_process_stats():
+def get_process_stats(user):
     """
     Deals with the caching of statistics called by the Imouto Viewer. Some versions of MariaDB
     take a long time to get the highest value in a date column on a big table, so we do some
@@ -36,7 +36,7 @@ def get_process_stats():
 
     return ret
 
-def generate_events(max_speed=2, min_length=300, for_date=None):
+def generate_events(user, max_speed=2, min_length=300, for_date=None):
     """
     Generates 'stop' events on the specified date. If no date is specified, generate events in
     the time between the last generated event and the last location data.
@@ -93,7 +93,7 @@ def generate_events(max_speed=2, min_length=300, for_date=None):
 
     return ret
 
-def get_location_events(dts, dte, lat, lon, dist=0.05):
+def get_location_events(user, dts, dte, lat, lon, dist=0.05):
     """
     Returns a list of dictionaries that represent potential stop events, based on the input given by the user.
     Required input are latitude and longitude co-ordinates, a start time and an end time. Optionally, the user
@@ -135,7 +135,7 @@ def get_location_events(dts, dte, lat, lon, dist=0.05):
 
     return ret
 
-def get_last_position(source=''):
+def get_last_position(user, source=''):
     """ Returns a datetime referencing the last position in the user's data. Optionally, specify a data source ID to restrict the search to that source. """
     if source == '':
         try:
@@ -149,7 +149,7 @@ def get_last_position(source=''):
             latest = None
     return latest
 
-def get_last_event():
+def get_last_event(user):
     """ Returns the start time of the last generated event. Or, if no events have been generated, the time of the last available data. """
     try:
         latest = Event.objects.order_by('-timeend')[0].timestart
@@ -228,41 +228,41 @@ def parse_file_csv(filename, source='unknown', delimiter='\t'):
             data.append(item)
     return data
 
-def import_data(data, source='unknown'):
+def import_data(user, data, source='unknown'):
     """ Takes a parsed dataset from parse_file_* and imports the data into the database. The source is just a string to uniquely identify a particular data source, such as 'phone' or 'fitness_tracker'. """
     dt = pytz.utc.localize(datetime.datetime.utcnow())
     for row in data:
         if row['date'] < dt:
             dt = row['date']
     dt = dt - datetime.timedelta(hours=12)
-    Position.objects.filter(time__gte=dt, explicit=False).delete()
-    Event.objects.filter(timeend__gte=dt).delete()
+    Position.objects.filter(user=user.profile, time__gte=dt, explicit=False).delete()
+    Event.objects.filter(user=user.profile, timeend__gte=dt).delete()
     for row in data:
         try:
-            pos = Position.objects.get(time=row['date'])
+            pos = Position.objects.get(user=user.profile, time=row['date'])
             pos.lat = row['lat']
             pos.lon = row['lon']
             pos.explicit = True
             pos.source = source
         except:
-            pos = Position(time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
+            pos = Position(user=user.profile, time=row['date'], lat=row['lat'], lon=row['lon'], explicit=True, source=source)
         if ((pos.elevation is None) & ('alt' in row)):
             pos.elevation = float(row['alt'])
         if 'alt' in row:
             pos.elevation = float(row['alt'])
         pos.save()
-    Position.objects.filter(time__gte=dt, explicit=False).delete()
-    Event.objects.filter(timeend__gte=dt).delete()
+    Position.objects.filter(user=user.profile, time__gte=dt, explicit=False).delete()
+    Event.objects.filter(user=user.profile, timeend__gte=dt).delete()
     if cache.has_key('last_calculated_position'):
         cached_dt = cache.get('last_calculated_position')
         dt_i = int(dt.timestamp())
         if dt_i < cached_dt:
             cache.set('last_calculated_position', dt_i, 86400)
 
-def extrapolate_position(dt, source='realtime'):
+def extrapolate_position(user, dt, source='realtime'):
     """ Returns an approximate position for a specified time for which no explicit location data exists. """
-    posbefore = Position.objects.filter(time__lt=dt).order_by('-time')[0]
-    posafter = Position.objects.filter(time__gt=dt).order_by('time')[0]
+    posbefore = Position.objects.filter(user=user.profile, time__lt=dt).order_by('-time')[0]
+    posafter = Position.objects.filter(user=user.profile, time__gt=dt).order_by('time')[0]
     trange = (posafter.time - posbefore.time).seconds
     tpoint = (dt - posbefore.time).seconds
     if trange == 0:
@@ -274,7 +274,7 @@ def extrapolate_position(dt, source='realtime'):
         lonrange = posafter.lon - posbefore.lon
         lat = posbefore.lat + (latrange * ratio)
         lon = posbefore.lon + (lonrange * ratio)
-    pos = Position(time=dt, lat=lat, lon=lon, explicit=False, source=source)
+    pos = Position(user=user.profile, time=dt, lat=lat, lon=lon, explicit=False, source=source)
     pos.save()
 
     return(pos)
@@ -294,7 +294,8 @@ def distance(lat1, lon1, lat2, lon2):
 def calculate_speed(pos):
     """ Calculates the speed being travelled by the user for a particular Position (which presumably has no existing speed data). """
     dt = pos.time
-    posbefore = Position.objects.filter(time__lt=dt).order_by('-time')[0]
+    user = pos.user
+    posbefore = Position.objects.filter(user=user, time__lt=dt).order_by('-time')[0]
     time = (dt - posbefore.time).seconds
     dist = distance(posbefore.lat, posbefore.lon, pos.lat, pos.lon)
     
@@ -303,22 +304,22 @@ def calculate_speed(pos):
     
     return((dist / time) * 2.237) # Return in miles per hour
 
-def populate():
+def populate(user):
     """ A function to be called from a background process that goes through the database ensuring there is at least one Position object for each minute of time, even if it has to calculate them. """
     try:
-        min_dt = Position.objects.filter(explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
+        min_dt = Position.objects.filter(user=user.profile, explicit=False).filter(source='cron').aggregate(Max('time'))['time__max']
     except:
-        min_dt = Position.objects.aggregate(Min('time'))['time__min']
-    max_dt = Position.objects.aggregate(Max('time'))['time__max']
+        min_dt = Position.objects.filter(user=user.profile).aggregate(Min('time'))['time__min']
+    max_dt = Position.objects.filter(user=user.profile).aggregate(Max('time'))['time__max']
 
     dt = min_dt + datetime.timedelta(seconds=60)
     if(dt < max_dt):
         added = False
         while(not(added)):
             try:
-                pos = Position.objects.get(time=dt)
+                pos = Position.objects.get(user=user.profile, time=dt)
             except:
-                pos = extrapolate_position(dt, 'cron')
+                pos = extrapolate_position(user, dt, 'cron')
                 added = True
             if pos.speed is None:
                 pos.speed = calculate_speed(pos)
@@ -330,9 +331,14 @@ def populate():
 
 def get_source_ids():
     """ Returns a list of all the strings relating to data sources that have been used to import data into the database. """
-    ret = []
-    for data in Position.objects.values('source').distinct():
-        ret.append(data['source'])
+    if cache.has_key('all_source_ids'):
+        ret = cache.get('all_source_ids')
+    else:
+        ret = []
+        for data in Position.objects.values('source').distinct():
+            ret.append(data['source'])
+        cache.set('all_source_ids', ret, 86400)
+
     return ret
 
 def nearest_amenities(lat, lon, dist=100):
