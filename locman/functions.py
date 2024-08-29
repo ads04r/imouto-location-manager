@@ -20,7 +20,7 @@ def get_process_stats(user):
         ret['last_calculated_position'] = int(cache.get('last_calculated_position'))
     else:
         try:
-            ret['last_calculated_position'] = int(Position.objects.filter(explicit=False, source='cron').order_by('-time')[0].time.timestamp())
+            ret['last_calculated_position'] = int(Position.objects.filter(user=user.profile, explicit=False, source='cron').order_by('-time')[0].time.timestamp())
             cache.set('last_calculated_position', ret['last_calculated_position'], 86400)
         except IndexError:
             ret['last_calculated_position'] = int(now.timestamp())
@@ -61,7 +61,7 @@ def generate_events(user, max_speed=2, min_length=300, for_date=None):
         ev.save()
         ret.append(ev)
         return ret
-    pp = Position.objects.filter(time__gte=dt, time__lte=dte, speed__gt=max_speed).order_by('time').all()
+    pp = Position.objects.filter(user=user.profile, time__gte=dt, time__lte=dte, speed__gt=max_speed).order_by('time').all()
     stops = []
     stops_refined = []
     for i in range(0, len(pp) - 4):
@@ -83,8 +83,8 @@ def generate_events(user, max_speed=2, min_length=300, for_date=None):
         else:
             stops_refined.append(n)
     for n in stops_refined:
-        ll = Position.objects.filter(time__gte=n[0], time__lte=n[1]).aggregate(Avg('lat'), Avg('lon'))
-        e = Event(timestart=n[0], timeend=n[1], lat=ll['lat__avg'], lon=ll['lon__avg'])
+        ll = Position.objects.filter(user=user.profile, time__gte=n[0], time__lte=n[1]).aggregate(Avg('lat'), Avg('lon'))
+        e = Event(timestart=n[0], timeend=n[1], lat=ll['lat__avg'], lon=ll['lon__avg'], user=user.profile)
         e.amenities_data = json.dumps(nearest_amenities(e.lat, e.lon))
         e.save()
         ret.append(e)
@@ -115,7 +115,7 @@ def get_location_events(user, dts, dte, lat, lon, dist=0.05):
 
     starttime = dts
     lasttime = dts
-    for position in Position.objects.filter(time__gte=dts - datetime.timedelta(hours=12), time__lte=dte + datetime.timedelta(hours=24), lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
+    for position in Position.objects.filter(user=user.profile, time__gte=dts - datetime.timedelta(hours=12), time__lte=dte + datetime.timedelta(hours=24), lat__gt=minlat, lat__lt=maxlat, lon__gt=minlon, lon__lt=maxlon).order_by('time'):
         if starttime == dts:
             starttime = position.time
             lasttime = position.time
@@ -139,12 +139,12 @@ def get_last_position(user, source=''):
     """ Returns a datetime referencing the last position in the user's data. Optionally, specify a data source ID to restrict the search to that source. """
     if source == '':
         try:
-            latest = Position.objects.order_by('-time')[0].time
+            latest = Position.objects.filter(user=user.profile).order_by('-time')[0].time
         except:
             latest = None
     else:
         try:
-            latest = Position.objects.filter(source=source).order_by('-time')[0].time
+            latest = Position.objects.filter(user=user.profile, source=source).order_by('-time')[0].time
         except:
             latest = None
     return latest
@@ -152,7 +152,7 @@ def get_last_position(user, source=''):
 def get_last_event(user):
     """ Returns the start time of the last generated event. Or, if no events have been generated, the time of the last available data. """
     try:
-        latest = Event.objects.order_by('-timeend')[0].timestart
+        latest = Event.objects.filter(user=user.profile).order_by('-timeend')[0].timestart
     except:
         latest = get_last_position() # TODO change this to first?
     return latest

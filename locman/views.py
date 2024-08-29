@@ -355,7 +355,7 @@ def locationevent(request, ds, lat, lon):
     dts = datetime.datetime(dssyear, dssmonth, dssday, 0, 0, 0, tzinfo=pytz.UTC)
     dte = datetime.datetime(dssyear, dssmonth, dssday, 23, 59, 59, tzinfo=pytz.UTC)
 
-    ret = get_location_events(dts, dte, lat, lon)
+    ret = get_location_events(user, dts, dte, lat, lon)
 
     serializer = EventSerializer(ret, many=True)
     response = Response(data=serializer.data)
