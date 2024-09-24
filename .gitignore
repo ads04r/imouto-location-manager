@@ -5,3 +5,5 @@ locman/migrations/[0-9]*_*.py
 media/photos
 services
 imouto/settings_local.py
+media/shapefiles
+media/*.mbtiles

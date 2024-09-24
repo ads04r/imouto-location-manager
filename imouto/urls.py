@@ -10,6 +10,7 @@ admin.site.site_title = 'Imouto Admin'
 
 urlpatterns = [
     path('location-manager/', include('locman.urls')),
+    path('tiles/', include('django_tiles_gl.urls')),
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/location-manager/', permanent=False))
 ]

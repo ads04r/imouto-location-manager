@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'background_task',
+    'django_tiles_gl',
     'locman.apps.LocmanConfig',
     'django.contrib.admin',
     'django.contrib.staticfiles',
