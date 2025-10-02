@@ -102,7 +102,7 @@ class PositionViewSet(viewsets.ViewSet):
         try:
             pos = Position.objects.get(user, time=dt)
         except:
-            pos = extrapolate_position(dt)
+            pos = extrapolate_position(user, dt)
         if pos.speed is None:
             pos.speed = calculate_speed(pos)
             pos.save()
